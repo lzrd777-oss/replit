@@ -15,12 +15,7 @@
         // The current page can still be opened if browser storage is disabled.
       }
 
-      for (const element of document.body.children) {
-        if (element instanceof HTMLElement) element.inert = false;
-      }
-
-      document.documentElement.removeAttribute("data-age-gate");
-      window.dispatchEvent(new Event("hhc:entered"));
+      window.location.assign("/bg.html");
     },
     { capture: true },
   );
