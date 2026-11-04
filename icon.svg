@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="HHC-STORE">
+  <!-- Favicon storefrontu. Písmeno je vyříznuté z firemního nápisu
+       (public/hhc-store_-_logo_.svg), ne překreslené — drží tak segmentovaný
+       dřík, podle kterého je značka poznat. Nápis samotný je moc široký, na
+       16 px by z něj zbyla čára.
+
+       Černý podklad odpovídá hlavičce e-shopu a drží kontrast na světlém
+       i tmavém pruhu záložek; administrace má tentýž znak obráceně, aby šly
+       obě aplikace v záložkách rozeznat. -->
+  <rect width="100" height="100" rx="14" fill="#000000"/>
+  <path
+    transform="translate(25.48 80) scale(0.6506)"
+    fill="#ffffff"
+    d="M 24.765625 0 L 3.6875 0 L 3.6875 -33.734375 L 24.765625 -33.734375 Z M 48.484375 -36.359375 L 3.15625 -36.359375 L 3.15625 -56.90625 L 48.484375 -56.90625 Z M 24.765625 -59.546875 L 3.6875 -59.546875 L 3.6875 -92.21875 L 24.765625 -92.21875 Z M 51.109375 -92.21875 L 72.203125 -92.21875 L 72.203125 0 L 51.109375 0 Z"
+  />
+</svg>
