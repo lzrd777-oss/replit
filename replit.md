@@ -22,9 +22,13 @@ checkout, payment processing, or other server-side services. Bundled scripts
 may still reference the original site's services. Do not treat this static
 copy as a working independent store or submit personal information through it.
 
-Verification confirmed that the initial age-verification screen renders, the
-homepage aliases and contact page respond, and private files return 404.
-Screens beyond the age-verification interaction were not visually verified.
+The local age-gate handler is injected into all imported HTML pages. Accepting
+the age prompt opens the homepage (or reloads the current subpage) after saving
+confirmation. If the browser blocks both cookies and local storage, it instead
+unlocks the current page without a redirect. Declining still leaves the site.
+Verification confirmed that a real pointer click on the age-confirmation button
+opens the homepage with the prompt hidden and the page content unlocked.
+The homepage aliases and contact page respond, and private files return 404.
 The original ZIP contains no `.woff2` fonts and omits some decorative images
 referenced by the pages. Browser logs also report malformed imported `srcset`
 attributes. These are limitations of the imported snapshot, not dependencies

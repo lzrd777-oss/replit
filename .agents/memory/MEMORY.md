@@ -1,0 +1,1 @@
+- [Preview interaction checks](preview-interaction-checks.md) — verify age-confirmation entry with real input, visible content, scrolling, and blocked browser storage.

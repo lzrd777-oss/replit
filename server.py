@@ -36,7 +36,7 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         if not candidate.is_file():
             self.send_error(404, "This file was not included in the website import.")
             return None
-        if candidate == ROOT / "index.html":
+        if candidate.suffix == ".html":
             content = candidate.read_bytes().replace(
                 b"</body>",
                 b'<script src="/age-gate.js" defer></script></body>',
