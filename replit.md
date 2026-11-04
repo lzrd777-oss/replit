@@ -23,9 +23,10 @@ may still reference the original site's services. Do not treat this static
 copy as a working independent store or submit personal information through it.
 
 The local age-gate handler is injected into all imported HTML pages. Accepting
-the age prompt opens the homepage (or reloads the current subpage) after saving
-confirmation. If the browser blocks both cookies and local storage, it instead
-unlocks the current page without a redirect. Declining still leaves the site.
+the age prompt always navigates to the homepage, including from subpages.
+Explicit confirmation is carried to the destination in the URL so the homepage
+opens even when Preview blocks cookies and local storage. Declining still leaves
+the site.
 Verification confirmed that a real pointer click on the age-confirmation button
 opens the homepage with the prompt hidden and the page content unlocked.
 The homepage aliases and contact page respond, and private files return 404.

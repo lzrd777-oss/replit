@@ -3,7 +3,7 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parent
@@ -41,6 +41,17 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
                 b"</body>",
                 b'<script src="/age-gate.js" defer></script></body>',
             )
+            if (
+                candidate == ROOT / "index.html"
+                and parse_qs(urlsplit(self.path).query).get("age_confirmed") == ["1"]
+            ):
+                # The visitor just explicitly confirmed via the age button.
+                # Run after the imported head scripts, before hydration, so
+                # entry works even when iframe storage is unavailable.
+                content = content.replace(
+                    b"</head>",
+                    b'<script>document.documentElement.removeAttribute("data-age-gate");</script></head>',
+                )
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))

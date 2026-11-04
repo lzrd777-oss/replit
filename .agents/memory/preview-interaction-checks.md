@@ -15,3 +15,11 @@ became hidden. That was not enough evidence for the user-visible outcome.
 confirmation, and verify direct entry to a subpage. Do not assume browser
 storage is available inside an embedded preview, and do not remove the age
 prompt without the visitor explicitly confirming.
+
+The user specifically requires the green age-confirmation button to go to the
+homepage every time, including when the prompt is on a subpage.
+
+**Why:** The user repeated this destination requirement.
+
+**How to apply:** Do not substitute reloading a subpage or only hiding its
+overlay for navigating to the homepage.
