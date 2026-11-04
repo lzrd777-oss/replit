@@ -1,13 +1,14 @@
 """Serve the imported website without exposing workspace or configuration files."""
 
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC_DIRECTORIES = {"_next", "bg", "brand", "storage"}
-PUBLIC_FILES = {"index.html", "hhc-store-logo.svg", "icon.svg"}
+PUBLIC_FILES = {"index.html", "hhc-store-logo.svg", "icon.svg", "age-gate.js"}
 
 
 class WebsiteHandler(SimpleHTTPRequestHandler):
@@ -35,6 +36,18 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         if not candidate.is_file():
             self.send_error(404, "This file was not included in the website import.")
             return None
+        if candidate == ROOT / "index.html":
+            content = candidate.read_bytes().replace(
+                b"</body>",
+                b'<script src="/age-gate.js" defer></script></body>',
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            return BytesIO(content)
         self.path = "/" + candidate.relative_to(ROOT).as_posix()
         return super().send_head()
 
