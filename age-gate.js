@@ -1,4 +1,13 @@
 (() => {
+  try {
+    document.cookie = "hhc_currency=EUR; path=/; max-age=31536000; samesite=lax";
+  } catch {}
+  try {
+    localStorage.setItem("hhc:currency", "EUR");
+  } catch {}
+})();
+
+(() => {
   const ageGate = document.querySelector("[data-age-gate-root]");
   const acceptButton = ageGate?.querySelector("button");
 

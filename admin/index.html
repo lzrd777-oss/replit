@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HHC STORE — Admin</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div id="login-screen" class="login-screen hidden">
+    <form id="login-form" class="login-card">
+      <div class="login-brand">HHC STORE <span class="badge">ADMIN v2.0</span></div>
+      <p class="login-sub">Вход в администраторския панел</p>
+      <label class="field">
+        <span>ПАРОЛА</span>
+        <input type="password" id="login-password" autocomplete="current-password" required />
+      </label>
+      <p id="login-error" class="error-text hidden"></p>
+      <button type="submit" class="btn btn-gold btn-block">Вход</button>
+    </form>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <strong>HHC STORE</strong>
+        <span class="badge">ADMIN v2.0</span>
+      </div>
+      <nav class="tabs">
+        <button type="button" class="tab" data-view="orders" id="tab-orders">
+          Поръчки <span class="tab-pill" id="orders-pill">0 нови</span>
+        </button>
+        <button type="button" class="tab active" data-view="products" id="tab-products">
+          Продукти <span class="tab-count" id="products-pill">0</span>
+        </button>
+      </nav>
+      <div class="top-actions">
+        <a class="btn btn-dark" href="/" target="_blank" rel="noopener">🌐 Магазин</a>
+        <button type="button" class="btn btn-logout" id="logout-btn">Изход</button>
+      </div>
+    </header>
+
+    <section class="stats" id="stats-row"></section>
+
+    <main>
+      <section id="view-orders" class="view hidden">
+        <div class="toolbar">
+          <div class="pills" id="order-filters"></div>
+          <div class="toolbar-right">
+            <label class="search">
+              <span>🔎</span>
+              <input type="search" id="order-search" placeholder="Търси по име, тел, №..." />
+            </label>
+            <button type="button" class="btn btn-blue" id="refresh-orders">Обнови</button>
+          </div>
+        </div>
+        <div id="orders-list" class="orders-list"></div>
+      </section>
+
+      <section id="view-products" class="view">
+        <div class="toolbar wrap">
+          <div class="pills" id="product-cat-filters"></div>
+        </div>
+        <div class="toolbar wrap">
+          <div class="pills" id="product-status-filters"></div>
+          <div class="toolbar-right">
+            <label class="search">
+              <span>🔎</span>
+              <input type="search" id="product-search" placeholder="Търси в каталога..." />
+            </label>
+            <button type="button" class="btn btn-dark" id="archive-all">Архивирай Всички</button>
+            <button type="button" class="btn btn-light" id="restore-all">Възстанови Всички</button>
+            <button type="button" class="btn btn-gold" id="new-product">+ Нов Продукт</button>
+          </div>
+        </div>
+        <div id="products-grid" class="products-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal-root" class="modal-root hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal" role="dialog" aria-modal="true">
+      <button type="button" class="modal-close" data-close="1" aria-label="Затвори">×</button>
+      <h2 id="modal-title">Редакция</h2>
+      <p class="modal-sub">Попълнете данните за продукта за незабавна публикация в сайта.</p>
+      <form id="product-form" class="product-form"></form>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

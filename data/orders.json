@@ -1,0 +1,149 @@
+[
+  {
+    "id": "HMP-918982",
+    "created_at": "2026-11-06T8:29:00",
+    "customer_name": "Kristian Dimitrov",
+    "phone": "+359 877104225",
+    "city": "София",
+    "courier": "Econt",
+    "address": "Люлин 8, офис 123",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "thc-x-cartridge-99-og-kush-1-ml",
+        "title": "THC-X Cartridge 99% - OG-Kush 1 ml",
+        "volume": "1 ml",
+        "qty": 2,
+        "unit_price": 23.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 51.2
+  },
+  {
+    "id": "HMP-918965",
+    "created_at": "2026-11-05T9:29:00",
+    "customer_name": "Dragomir Dimitrov",
+    "phone": "+359 888112233",
+    "city": "Пловдив",
+    "courier": "Speedy",
+    "address": "Център, офис 12",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "thc-x-vape-pen-99-skywalker-2-ml",
+        "title": "THC-X Vape Pen 99% - Skywalker 2 ml",
+        "volume": "2 ml",
+        "qty": 1,
+        "unit_price": 39.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 43.6
+  },
+  {
+    "id": "HMP-918948",
+    "created_at": "2026-11-04T10:29:00",
+    "customer_name": "Stefan Radev",
+    "phone": "+359 899445566",
+    "city": "Варна",
+    "courier": "Econt",
+    "address": "Младост, офис 7",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "hxc-cartridge-99-amnesia-haze-1-ml",
+        "title": "HXC Cartridge 99% - Amnesia Haze 1 ml",
+        "volume": "1 ml",
+        "qty": 1,
+        "unit_price": 19.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 23.6
+  },
+  {
+    "id": "HMP-918931",
+    "created_at": "2026-11-03T11:29:00",
+    "customer_name": "Maria Petrova",
+    "phone": "+359 876554433",
+    "city": "Бургас",
+    "courier": "Speedy",
+    "address": "Лазур, офис 3",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "thc-x-vape-pen-99-strawberry-2-ml",
+        "title": "THC-X Vape Pen 99% - Strawberry 2 ml",
+        "volume": "2 ml",
+        "qty": 2,
+        "unit_price": 39.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 83.2
+  },
+  {
+    "id": "HMP-918914",
+    "created_at": "2026-11-02T12:29:00",
+    "customer_name": "Ivan Georgiev",
+    "phone": "+359 885001122",
+    "city": "Русе",
+    "courier": "Econt",
+    "address": "Център, офис 9",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "ccell-palm",
+        "title": "CCELL Palm",
+        "volume": "",
+        "qty": 1,
+        "unit_price": 19.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 23.6
+  },
+  {
+    "id": "HMP-918897",
+    "created_at": "2026-11-06T13:29:00",
+    "customer_name": "Elena Nikolova",
+    "phone": "+359 878990011",
+    "city": "Стара Загора",
+    "courier": "Speedy",
+    "address": "Три чучура, офис 2",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "thc-x-cartridge-99-blackberry-lemonade-1-ml",
+        "title": "THC-X Cartridge 99% - Blackberry Lemonade 1 ml",
+        "volume": "1 ml",
+        "qty": 1,
+        "unit_price": 23.6
+      }
+    ],
+    "shipping": 4.0,
+    "total": 27.6
+  },
+  {
+    "id": "HMP-918880",
+    "created_at": "2026-11-05T14:29:00",
+    "customer_name": "Petar Stoyanov",
+    "phone": "+359 887223344",
+    "city": "Плевен",
+    "courier": "Econt",
+    "address": "Сторгозия, офис 5",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "2x-thc-x-cartridge-99-1-ml-ccell-rizo-palm",
+        "title": "2x THC-X Cartridge 99% 1 ml + CCELL Rizo Palm",
+        "volume": "1 ml",
+        "qty": 2,
+        "unit_price": 71.2
+      }
+    ],
+    "shipping": 4.0,
+    "total": 146.4
+  }
+]

@@ -1,2 +1,5 @@
 /__pycache__/
 /zipFile.zip
+/data/*.tmp
+/scripts/__pycache__/
+/scripts/debug_extract.py
