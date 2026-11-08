@@ -1,8 +1,51 @@
 (() => {
-  const CATALOG_URL = "/storage/catalog.json";
+  const CATALOG_URL = "/api/catalog";
+  const CATALOG_FALLBACK = "/storage/catalog.json";
   let catalog = null;
 
   const eurRe = /\d[\d\s\u00a0]*(?:[.,]\d{1,2})?\s*€/g;
+
+  function cleanPageUrl(url) {
+    if (!url || typeof url !== "string") return url;
+    if (/^(https?:|mailto:|tel:|javascript:|#)/i.test(url)) return url;
+    let next = url.replace(/\.html(?=[?#]|$)/i, "");
+    if (next === "/bg" || next.startsWith("/bg?")) {
+      next = next.replace(/^\/bg/, "/");
+    }
+    return next;
+  }
+
+  function normalizeDocumentLinks(root) {
+    (root || document).querySelectorAll("a[href], form[action]").forEach((el) => {
+      const attr = el.hasAttribute("href") ? "href" : "action";
+      const raw = el.getAttribute(attr);
+      if (!raw || !/\.html/i.test(raw)) return;
+      const cleaned = cleanPageUrl(raw);
+      if (cleaned !== raw) el.setAttribute(attr, cleaned);
+    });
+  }
+
+  normalizeDocumentLinks(document);
+  document.addEventListener(
+    "click",
+    (e) => {
+      const a = e.target.closest("a[href]");
+      if (!a) return;
+      const raw = a.getAttribute("href");
+      if (!raw || !/\.html/i.test(raw)) return;
+      if (/^(https?:|mailto:|tel:|javascript:)/i.test(raw)) return;
+      const cleaned = cleanPageUrl(raw);
+      if (cleaned === raw) return;
+      e.preventDefault();
+      a.setAttribute("href", cleaned);
+      if (e.metaKey || e.ctrlKey || e.shiftKey || a.target === "_blank") {
+        window.open(cleaned, a.target || "_blank");
+      } else {
+        window.location.assign(cleaned);
+      }
+    },
+    true
+  );
 
   function slugFromHref(href) {
     if (!href) return null;
@@ -14,10 +57,10 @@
     return (
       el.closest("article") ||
       el.closest("li") ||
+      el.closest("[class*='ProductCard']") ||
       el.closest("[class*='Card']") ||
       el.closest("[class*='card']") ||
       el.closest("[class*='Produkt']") ||
-      el.closest("section") ||
       el.parentElement
     );
   }
@@ -34,7 +77,6 @@
     }
     texts.forEach((n, idx) => {
       const next = (n.nodeValue || "").replace(eurRe, () => {
-        // first price = regular, second often member
         if (idx === 0) return product.price_text;
         if (idx === 1 && product.member_text) return product.member_text;
         return product.price_text;
@@ -43,13 +85,83 @@
     });
   }
 
-  function applyStock(root, product) {
+  function applyStockUi(root, product) {
     if (!root) return;
+    const inStock = !!product.in_stock;
+    const label = product.stock_text || (inStock ? "В наличност (5+ бр.)" : "Изчерпано");
+
+    root.querySelectorAll('[class*="stock"]').forEach((el) => {
+      if (inStock) {
+        el.className = el.className
+          .replace(/stockOut/g, "stockIn")
+          .replace(/skladNic/g, "stock");
+      } else {
+        el.className = el.className.replace(/stockIn/g, "stockOut");
+      }
+    });
+
     root.querySelectorAll("*").forEach((el) => {
+      if (el.children.length > 0) return;
       const t = (el.textContent || "").trim();
       if (!t) return;
-      if (/^В наличност/.test(t) || t === "Изчерпан" || t === "Изчерпано") {
-        if (el.children.length === 0) el.textContent = product.stock_text;
+      if (
+        /^В наличност/.test(t) ||
+        t === "Изчерпан" ||
+        t === "Изчерпано" ||
+        /^Последни\s+\d+/.test(t)
+      ) {
+        el.textContent = inStock ? label : "Изчерпано";
+      }
+    });
+  }
+
+  function setCtaText(el, label) {
+    const nodes = [...el.childNodes].filter((n) => n.nodeType === 3);
+    if (nodes.length) {
+      nodes[nodes.length - 1].nodeValue = label;
+      return;
+    }
+    el.textContent = label;
+  }
+
+  function applyCta(root, product) {
+    if (!root) return;
+    const inStock = !!product.in_stock;
+    const onPdp = /\/produkt\//.test(location.pathname);
+    root.querySelectorAll("button, a").forEach((el) => {
+      const t = (el.textContent || "").trim();
+      const hasCtaClass = /cta/i.test(el.className || "");
+      const isKnownLabel = CTA_LABELS.has(t);
+      const looksBroken =
+        hasCtaClass &&
+        t &&
+        !isKnownLabel &&
+        (t === product.title || t.length > 24);
+      if (!hasCtaClass && !isKnownLabel && !looksBroken) return;
+
+      if (inStock) {
+        el.removeAttribute("disabled");
+        if ("disabled" in el) el.disabled = false;
+        if (
+          t === "Извести ме" ||
+          t === "Изчерпано" ||
+          looksBroken
+        ) {
+          setCtaText(el, onPdp ? "Добави в количката" : "Избери");
+        }
+      } else if (
+        t === "Избери" ||
+        t === "В количката" ||
+        t === "Добави в количката" ||
+        looksBroken
+      ) {
+        if (el.tagName === "BUTTON") {
+          el.disabled = true;
+          el.setAttribute("disabled", "");
+          setCtaText(el, "Изчерпано");
+        } else if (hasCtaClass) {
+          setCtaText(el, "Извести ме");
+        }
       }
     });
   }
@@ -58,12 +170,31 @@
     const h1 = document.querySelector("h1");
     if (h1 && product.title) h1.textContent = product.title;
     if (product.title) document.title = `${product.title} – HHC-STORE`;
-    replacePrices(document.querySelector("main") || document.body, product);
-    applyStock(document.querySelector("main") || document.body, product);
+    const root = document.querySelector("main") || document.body;
+    replacePrices(root, product);
+    applyStockUi(root, product);
+    applyCta(root, product);
+  }
+
+  const CTA_LABELS = new Set([
+    "Избери",
+    "Извести ме",
+    "Изчерпано",
+    "Добави в количката",
+    "В количката",
+  ]);
+
+  function isCtaLabel(text) {
+    const t = (text || "").trim();
+    if (!t) return false;
+    if (CTA_LABELS.has(t)) return true;
+    // Already-broken CTA that was overwritten with a long product title
+    // but still uses the green CTA class.
+    return false;
   }
 
   function applyListingCards(products) {
-    document.querySelectorAll('a[href*="/produkt/"]').forEach((a) => {
+    document.querySelectorAll('a[href*="/produkt/"], a[href*="produkt/"]').forEach((a) => {
       const slug = slugFromHref(a.getAttribute("href"));
       if (!slug) return;
       const product = products[slug];
@@ -79,13 +210,36 @@
         card.style.display = "";
         card.removeAttribute("data-hhc-archived");
       }
-      // Update link/title text if this anchor is the title
-      if (a.textContent && a.textContent.trim().length > 3 && product.title) {
-        const onlyText = a.childElementCount === 0;
-        if (onlyText) a.textContent = product.title;
+
+      // Only rewrite product TITLE links — never green CTA links labeled "Избери".
+      const cls = a.className || "";
+      const text = (a.textContent || "").trim();
+      const isTitleLink =
+        /title/i.test(cls) ||
+        a.querySelector('[class*="title"]') ||
+        (/titleText/i.test(cls) || a.closest('[class*="title"]'));
+      const isCtaLink = /cta/i.test(cls) || isCtaLabel(text);
+      if (
+        product.title &&
+        isTitleLink &&
+        !isCtaLink &&
+        a.childElementCount <= 1 &&
+        text &&
+        text !== product.title &&
+        !CTA_LABELS.has(text)
+      ) {
+        const target = a.querySelector('[class*="titleText"]') || a;
+        if (target.childElementCount === 0) target.textContent = product.title;
       }
+
+      // Restore CTA links that were wrongly rewritten to the product title.
+      if (/cta/i.test(cls) && text && text === product.title) {
+        a.textContent = product.in_stock ? "Избери" : "Извести ме";
+      }
+
       replacePrices(card, product);
-      applyStock(card, product);
+      applyStockUi(card, product);
+      applyCta(card, product);
     });
   }
 
@@ -107,9 +261,14 @@
 
   async function load() {
     try {
-      const res = await fetch(`${CATALOG_URL}?t=${Date.now()}`, {
+      let res = await fetch(`${CATALOG_URL}?t=${Date.now()}`, {
         cache: "no-store",
       });
+      if (!res.ok) {
+        res = await fetch(`${CATALOG_FALLBACK}?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+      }
       if (!res.ok) return;
       catalog = await res.json();
       apply();
@@ -119,8 +278,10 @@
   }
 
   load();
-  // Re-apply after Next hydration / late paints.
-  setTimeout(apply, 400);
+  setTimeout(() => {
+    normalizeDocumentLinks(document);
+    apply();
+  }, 400);
   setTimeout(apply, 1200);
   setTimeout(load, 2500);
   document.addEventListener("visibilitychange", () => {

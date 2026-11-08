@@ -1,4 +1,4 @@
-"""JSON-backed store for admin products and orders."""
+"""Store for admin products and orders — Supabase when configured, else JSON files."""
 
 from __future__ import annotations
 
@@ -29,6 +29,32 @@ _sessions: dict[str, float] = {}  # token -> expiry ts
 SESSION_TTL = 60 * 60 * 12
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "hhc-admin")
+
+_supabase_ready: bool | None = None
+
+PRODUCT_FIELDS = (
+    "id",
+    "slug",
+    "title",
+    "category",
+    "price",
+    "old_price",
+    "member_price",
+    "volume",
+    "lab_label",
+    "in_stock",
+    "stock_text",
+    "image",
+    "archived",
+    "short_description",
+    "full_description",
+    "sku",
+    "tags",
+    "specs",
+    "flavors",
+    "colors",
+    "flavor_slots",
+)
 
 
 def _read_json(path: Path, default: Any) -> Any:
@@ -63,8 +89,172 @@ def _sync_storefront(
         print(f"[storefront_sync] {exc}", flush=True)
 
 
+def refresh_supabase_status() -> bool:
+    global _supabase_ready
+    _supabase_ready = None
+    return use_supabase()
+
+
+def use_supabase() -> bool:
+    global _supabase_ready
+    try:
+        import supabase_client as sb
+    except Exception:
+        return False
+    if not sb.configured():
+        return False
+    if _supabase_ready is None:
+        try:
+            _supabase_ready = sb.tables_ready()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[supabase] tables check failed: {exc}", flush=True)
+            _supabase_ready = False
+    return bool(_supabase_ready)
+
+
+def _num(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _product_from_row(row: dict) -> dict:
+    title = row.get("title") or ""
+    slots = int(row.get("flavor_slots") or 0)
+    if not slots and str(title).lower().startswith("2x"):
+        slots = 2
+    return {
+        "id": row.get("id"),
+        "slug": row.get("slug") or row.get("id"),
+        "title": title,
+        "category": row.get("category") or "",
+        "price": float(row.get("price") or 0),
+        "old_price": _num(row.get("old_price")),
+        "member_price": _num(row.get("member_price")),
+        "volume": row.get("volume") or "",
+        "lab_label": row.get("lab_label") or "",
+        "in_stock": bool(row.get("in_stock")),
+        "stock_text": row.get("stock_text") or "",
+        "image": row.get("image") or "",
+        "archived": bool(row.get("archived")),
+        "short_description": row.get("short_description") or "",
+        "full_description": row.get("full_description") or "",
+        "sku": row.get("sku") or "",
+        "tags": row.get("tags") if isinstance(row.get("tags"), list) else [],
+        "specs": row.get("specs") if isinstance(row.get("specs"), dict) else {},
+        "flavors": row.get("flavors") if isinstance(row.get("flavors"), list) else [],
+        "colors": row.get("colors") if isinstance(row.get("colors"), list) else [],
+        "flavor_slots": slots,
+    }
+
+
+def _product_to_row(product: dict) -> dict:
+    pid = product.get("id") or product.get("slug")
+    title = product.get("title") or ""
+    slots = int(product.get("flavor_slots") or 0)
+    if not slots and str(title).lower().startswith("2x"):
+        slots = 2
+    row = {
+        "id": pid,
+        "slug": product.get("slug") or pid,
+        "title": title,
+        "category": product.get("category") or "",
+        "price": float(product.get("price") or 0),
+        "old_price": _num(product.get("old_price")),
+        "member_price": _num(product.get("member_price")),
+        "volume": product.get("volume") or "",
+        "lab_label": product.get("lab_label") or "",
+        "in_stock": bool(product.get("in_stock")),
+        "stock_text": product.get("stock_text") or "",
+        "image": product.get("image") or "",
+        "archived": bool(product.get("archived")),
+        "short_description": product.get("short_description") or "",
+        "full_description": product.get("full_description") or "",
+        "sku": product.get("sku") or "",
+        "tags": product.get("tags") if isinstance(product.get("tags"), list) else [],
+        "specs": product.get("specs") if isinstance(product.get("specs"), dict) else {},
+        "flavors": product.get("flavors") if isinstance(product.get("flavors"), list) else [],
+        "colors": product.get("colors") if isinstance(product.get("colors"), list) else [],
+        "flavor_slots": slots,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    return row
+
+
+def _order_from_row(row: dict) -> dict:
+    created = row.get("created_at") or ""
+    if isinstance(created, str) and created.endswith("Z"):
+        created = created.replace("Z", "")
+    if isinstance(created, str) and "+" in created:
+        created = created.split("+")[0]
+    return {
+        "id": row.get("id"),
+        "created_at": created,
+        "customer_name": row.get("customer_name") or "",
+        "first_name": row.get("first_name") or "",
+        "last_name": row.get("last_name") or "",
+        "phone": row.get("phone") or "",
+        "email": row.get("email") or "",
+        "city": row.get("city") or "",
+        "postal_code": row.get("postal_code") or "",
+        "courier": row.get("courier") or "Econt",
+        "delivery_type": row.get("delivery_type") or "office",
+        "address": row.get("address") or "",
+        "payment": row.get("payment") or "cod",
+        "status": row.get("status") or "new_order",
+        "items": row.get("items") if isinstance(row.get("items"), list) else [],
+        "subtotal": float(row.get("subtotal") or 0),
+        "discount": float(row.get("discount") or 0),
+        "promo_code": row.get("promo_code") or "",
+        "shipping": float(row.get("shipping") or 0),
+        "total": float(row.get("total") or 0),
+    }
+
+
+def _order_to_row(order: dict) -> dict:
+    return {
+        "id": order.get("id"),
+        "created_at": order.get("created_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "customer_name": order.get("customer_name") or "",
+        "first_name": order.get("first_name") or "",
+        "last_name": order.get("last_name") or "",
+        "phone": order.get("phone") or "",
+        "email": order.get("email") or "",
+        "city": order.get("city") or "",
+        "postal_code": order.get("postal_code") or "",
+        "courier": order.get("courier") or "Econt",
+        "delivery_type": order.get("delivery_type") or "office",
+        "address": order.get("address") or "",
+        "payment": order.get("payment") or "cod",
+        "status": order.get("status") or "new_order",
+        "items": order.get("items") if isinstance(order.get("items"), list) else [],
+        "subtotal": float(order.get("subtotal") or 0),
+        "discount": float(order.get("discount") or 0),
+        "promo_code": order.get("promo_code") or "",
+        "shipping": float(order.get("shipping") or 0),
+        "total": float(order.get("total") or 0),
+    }
+
+
 def ensure_seed_data() -> None:
+    # Load .env early
+    try:
+        import supabase_client  # noqa: F401
+    except Exception:
+        pass
+    global ADMIN_PASSWORD
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", ADMIN_PASSWORD)
+
     DATA.mkdir(parents=True, exist_ok=True)
+    if use_supabase():
+        print("[store] Using Supabase for products/orders", flush=True)
+        _sync_storefront(list_products())
+        return
+
+    print("[store] Using local JSON (Supabase tables not ready yet)", flush=True)
     if not PRODUCTS_PATH.exists():
         import runpy
 
@@ -124,7 +314,6 @@ def ensure_seed_data() -> None:
                 }
             )
         _write_json(ORDERS_PATH, orders)
-    # Always refresh public catalog used by the storefront bridge.
     _sync_storefront(list_products())
 
 
@@ -159,16 +348,34 @@ def valid_session(token: str | None) -> bool:
 
 
 def list_products() -> list[dict]:
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = sb.select("products", order="title.asc")
+        return [_product_from_row(r) for r in rows]
     with _lock:
         return _read_json(PRODUCTS_PATH, [])
 
 
 def save_products(products: list[dict]) -> None:
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = [_product_to_row(p) for p in products if p.get("id")]
+        # Upsert in chunks
+        for i in range(0, len(rows), 100):
+            sb.upsert("products", rows[i : i + 100], on_conflict="id")
+        return
     with _lock:
         _write_json(PRODUCTS_PATH, products)
 
 
 def get_product(product_id: str) -> dict | None:
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = sb.select("products", filters={"id": f"eq.{product_id}"}, limit=1)
+        return _product_from_row(rows[0]) if rows else None
     for p in list_products():
         if p.get("id") == product_id:
             return p
@@ -176,11 +383,22 @@ def get_product(product_id: str) -> dict | None:
 
 
 def upsert_product(product: dict, product_id: str | None = None) -> dict:
-    products = list_products()
     pid = product_id or product.get("id") or product.get("slug")
     if not pid:
         raise ValueError("Product id required")
     product = {**product, "id": pid, "slug": product.get("slug") or pid}
+
+    if use_supabase():
+        import supabase_client as sb
+
+        existing = get_product(pid) or {}
+        merged = {**existing, **product, "id": pid}
+        rows = sb.upsert("products", _product_to_row(merged), on_conflict="id")
+        out = _product_from_row(rows[0]) if rows else _product_from_row(_product_to_row(merged))
+        _sync_storefront(list_products(), product=out)
+        return out
+
+    products = list_products()
     found = False
     for i, p in enumerate(products):
         if p.get("id") == pid:
@@ -196,6 +414,16 @@ def upsert_product(product: dict, product_id: str | None = None) -> dict:
 
 
 def delete_product(product_id: str) -> bool:
+    if use_supabase():
+        import supabase_client as sb
+
+        existing = get_product(product_id)
+        if not existing:
+            return False
+        sb.delete("products", {"id": f"eq.{product_id}"})
+        _sync_storefront(list_products(), deleted_id=product_id)
+        return True
+
     products = list_products()
     next_list = [p for p in products if p.get("id") != product_id]
     if len(next_list) == len(products):
@@ -206,49 +434,65 @@ def delete_product(product_id: str) -> bool:
 
 
 def set_archived(product_id: str, archived: bool) -> dict | None:
-    products = list_products()
-    for i, p in enumerate(products):
-        if p.get("id") == product_id:
-            products[i] = {**p, "archived": archived}
-            save_products(products)
-            _sync_storefront(products, product=products[i])
-            return products[i]
-    return None
+    product = get_product(product_id)
+    if not product:
+        return None
+    return upsert_product({**product, "archived": archived}, product_id)
 
 
 def archive_all(active_only: bool = True) -> int:
     products = list_products()
     n = 0
-    for i, p in enumerate(products):
+    updated = []
+    for p in products:
         if active_only and p.get("archived"):
+            updated.append(p)
             continue
         if not p.get("archived"):
-            products[i] = {**p, "archived": True}
+            updated.append({**p, "archived": True})
             n += 1
-    save_products(products)
-    # Catalog/bridge hide archived cards sitewide; skip full HTML rewrite.
-    _sync_storefront(products)
+        else:
+            updated.append(p)
+    if n:
+        save_products(updated)
+        _sync_storefront(updated)
     return n
 
 
 def restore_all() -> int:
     products = list_products()
     n = 0
-    for i, p in enumerate(products):
+    updated = []
+    for p in products:
         if p.get("archived"):
-            products[i] = {**p, "archived": False}
+            updated.append({**p, "archived": False})
             n += 1
-    save_products(products)
-    _sync_storefront(products)
+        else:
+            updated.append(p)
+    if n:
+        save_products(updated)
+        _sync_storefront(updated)
     return n
 
 
 def list_orders() -> list[dict]:
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = sb.select("orders", order="created_at.desc")
+        return [_order_from_row(r) for r in rows]
     with _lock:
         return _read_json(ORDERS_PATH, [])
 
 
 def save_orders(orders: list[dict]) -> None:
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = [_order_to_row(o) for o in orders if o.get("id")]
+        for i in range(0, len(rows), 100):
+            sb.upsert("orders", rows[i : i + 100], on_conflict="id")
+        return
     with _lock:
         _write_json(ORDERS_PATH, orders)
 
@@ -256,6 +500,11 @@ def save_orders(orders: list[dict]) -> None:
 def set_order_status(order_id: str, status: str) -> dict | None:
     if status not in ORDER_STATUSES:
         raise ValueError("Invalid status")
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = sb.update("orders", {"id": f"eq.{order_id}"}, {"status": status})
+        return _order_from_row(rows[0]) if rows else None
     orders = list_orders()
     for i, o in enumerate(orders):
         if o.get("id") == order_id:
@@ -263,6 +512,125 @@ def set_order_status(order_id: str, status: str) -> dict | None:
             save_orders(orders)
             return orders[i]
     return None
+
+
+def _new_order_id() -> str:
+    return f"HMP-{secrets.randbelow(900000) + 100000}"
+
+
+def create_order(payload: dict) -> dict:
+    """Create a storefront order (cash on delivery)."""
+    customer_name = " ".join(
+        part
+        for part in [
+            str(payload.get("first_name") or "").strip(),
+            str(payload.get("last_name") or "").strip(),
+        ]
+        if part
+    ) or str(payload.get("customer_name") or "").strip()
+    phone = str(payload.get("phone") or "").strip()
+    city = str(payload.get("city") or "").strip()
+    address = str(payload.get("address") or "").strip()
+    raw_items = payload.get("items") or []
+    if not customer_name:
+        raise ValueError("Името е задължително")
+    if not phone:
+        raise ValueError("Телефонът е задължителен")
+    if not city:
+        raise ValueError("Градът е задължителен")
+    if not address:
+        raise ValueError("Адресът е задължителен")
+    if not isinstance(raw_items, list) or not raw_items:
+        raise ValueError("Количката е празна")
+
+    products_by_id = {p["id"]: p for p in list_products() if p.get("id")}
+    items: list[dict] = []
+    subtotal = 0.0
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        pid = str(raw.get("product_id") or raw.get("id") or "").strip()
+        product = products_by_id.get(pid)
+        qty = max(1, int(raw.get("qty") or 1))
+        if product:
+            if product.get("archived") or not product.get("in_stock"):
+                raise ValueError(f"Продуктът „{product.get('title') or pid}“ не е наличен")
+            unit = float(product.get("price") or 0)
+            title = product.get("title") or pid
+            volume = product.get("volume") or ""
+        else:
+            unit = float(raw.get("unit_price") or raw.get("price") or 0)
+            title = str(raw.get("title") or pid or "Продукт")
+            volume = str(raw.get("volume") or "")
+        flavors = [str(f).strip() for f in (raw.get("flavors") or []) if str(f).strip()]
+        color = str(raw.get("color") or "").strip()
+        option_bits = []
+        if flavors:
+            option_bits.append("Вкусове: " + ", ".join(flavors))
+        if color:
+            option_bits.append("Цвят: " + color)
+        line = {
+            "product_id": pid,
+            "title": title,
+            "volume": volume,
+            "qty": qty,
+            "unit_price": round(unit, 2),
+            "flavors": flavors,
+            "color": color,
+            "options": " · ".join(option_bits),
+        }
+        items.append(line)
+        subtotal += unit * qty
+
+    if not items:
+        raise ValueError("Количката е празна")
+
+    delivery_type = str(payload.get("delivery_type") or "office").strip()
+    shipping = 5.0 if delivery_type == "address" else 4.0
+    try:
+        shipping = float(payload.get("shipping") if payload.get("shipping") is not None else shipping)
+    except (TypeError, ValueError):
+        pass
+
+    promo = str(payload.get("promo_code") or "").strip().upper()
+    discount = 0.0
+    if promo == "VIP10":
+        discount = round(subtotal * 0.1, 2)
+
+    total = round(max(0.0, subtotal - discount) + shipping, 2)
+    order = {
+        "id": _new_order_id(),
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "customer_name": customer_name,
+        "first_name": str(payload.get("first_name") or "").strip(),
+        "last_name": str(payload.get("last_name") or "").strip(),
+        "phone": phone,
+        "email": str(payload.get("email") or "").strip(),
+        "city": city,
+        "postal_code": str(payload.get("postal_code") or "").strip(),
+        "courier": "Econt",
+        "delivery_type": delivery_type,
+        "address": address,
+        "payment": "cod",
+        "status": "new_order",
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "discount": discount,
+        "promo_code": promo,
+        "shipping": round(shipping, 2),
+        "total": total,
+    }
+
+    if use_supabase():
+        import supabase_client as sb
+
+        rows = sb.insert("orders", _order_to_row(order))
+        return _order_from_row(rows[0]) if rows else order
+
+    orders = list_orders()
+    orders.insert(0, order)
+    save_orders(orders)
+    return order
 
 
 def stats() -> dict:
@@ -288,4 +656,5 @@ def stats() -> dict:
         "out_of_stock": sum(1 for p in active if not p.get("in_stock")),
         "archived": sum(1 for p in products if p.get("archived")),
         "status_labels": STATUS_LABELS_BG,
+        "backend": "supabase" if use_supabase() else "json",
     }

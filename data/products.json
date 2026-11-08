@@ -226,7 +226,16 @@
     "tags": "CRD Full Spectrum, Drug Test Free",
     "short_description": "2x THC-X Cartridge 99% 1 ml + CCELL Palm Pro – купете онлайн в HHC-STORE.",
     "full_description": "2x THC-X Cartridge 99% 1 ml + CCELL Palm Pro – купете онлайн в HHC-STORE.",
-    "flavors": [],
+    "flavors": [
+      {
+        "name": "vkus 1",
+        "description": "opisaniee"
+      },
+      {
+        "name": "vkus 2",
+        "description": "opisanie"
+      }
+    ],
     "archived": false,
     "sku": "2x-thc-x-cartridge-99-1-ml-ccell-palm-pro"
   },

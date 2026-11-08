@@ -30,7 +30,7 @@
 
       // Carry this explicit confirmation to the destination even if the
       // embedded browser refuses cookies and local storage.
-      window.location.assign("/bg.html?age_confirmed=1");
+      window.location.assign("/?age_confirmed=1");
     },
     { capture: true },
   );

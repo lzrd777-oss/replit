@@ -1,0 +1,1 @@
+# No third-party deps — Vercel Python uses stdlib handler in api/index.py

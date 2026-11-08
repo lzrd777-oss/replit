@@ -12,13 +12,24 @@ from urllib.parse import parse_qs, unquote, urlsplit
 import admin_store
 
 ROOT = Path(__file__).resolve().parent
-PUBLIC_DIRECTORIES = {"_next", "bg", "brand", "storage", "admin"}
+PUBLIC_DIRECTORIES = {"_next", "bg", "brand", "storage", "admin", "checkout"}
 PUBLIC_FILES = {
     "index.html",
     "hhc-store-logo.svg",
     "icon.svg",
     "age-gate.js",
     "storefront-bridge.js",
+    "cart.js",
+}
+CHECKOUT_PATHS = {
+    "/bg/kosik",
+    "/bg/kosik.html",
+    "/kosik",
+    "/kosik.html",
+    "/checkout",
+    "/checkout/",
+    "/bg/checkout",
+    "/bg/checkout.html",
 }
 
 
@@ -66,7 +77,7 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self):
         path = unquote(urlsplit(self.path).path)
-        if path.startswith("/api/admin"):
+        if path.startswith("/api/admin") or path.startswith("/api/orders"):
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -81,13 +92,22 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         if path.startswith("/api/admin"):
             return self._handle_admin_api("GET", path)
         if path in {"/api/catalog", "/api/catalog.json"}:
-            catalog = ROOT / "storage" / "catalog.json"
-            if not catalog.is_file():
-                self.send_error(404)
-                return
-            body = catalog.read_bytes()
-            self._send(200, body, "application/json; charset=utf-8")
+            try:
+                import storefront_sync
+
+                payload = storefront_sync.build_catalog_payload(admin_store.list_products())
+                status, body, ctype = _json_bytes(payload)
+                self._send(status, body, ctype)
+            except Exception:
+                catalog = ROOT / "storage" / "catalog.json"
+                if not catalog.is_file():
+                    self.send_error(404)
+                    return
+                body = catalog.read_bytes()
+                self._send(200, body, "application/json; charset=utf-8")
             return
+        if path in CHECKOUT_PATHS:
+            return self._serve_checkout()
         if path in {"/admin", "/admin/"}:
             return self._serve_admin_index()
         return super().do_GET()
@@ -96,6 +116,8 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         path = unquote(urlsplit(self.path).path)
         if path.startswith("/api/admin"):
             return self._handle_admin_api("POST", path)
+        if path == "/api/orders":
+            return self._handle_public_order()
         self.send_error(404)
 
     def do_PUT(self):
@@ -123,6 +145,27 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             return
         body = index.read_bytes()
         self._send(200, body, "text/html; charset=utf-8")
+
+    def _serve_checkout(self):
+        index = ROOT / "checkout" / "index.html"
+        if not index.is_file():
+            self.send_error(404, "Checkout missing")
+            return
+        body = index.read_bytes()
+        self._send(200, body, "text/html; charset=utf-8")
+
+    def _handle_public_order(self):
+        try:
+            data = self._read_json()
+            order = admin_store.create_order(data)
+            status, body, ctype = _json_bytes({"ok": True, "order": order}, 201)
+            self._send(status, body, ctype)
+        except ValueError as exc:
+            status, body, ctype = _json_bytes({"ok": False, "error": str(exc)}, 400)
+            self._send(status, body, ctype)
+        except Exception as exc:  # noqa: BLE001
+            status, body, ctype = _json_bytes({"ok": False, "error": str(exc)}, 500)
+            self._send(status, body, ctype)
 
     def _handle_admin_api(self, method: str, path: str):
         try:
@@ -302,6 +345,28 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         path = unquote(urlsplit(self.path).path)
         if path in {"/", "/bg", "/bg/", "/bg.html"}:
             path = "/index.html"
+        # Clean URLs: /bg/produkt/foo → /bg/produkt/foo.html
+        if (
+            path.startswith("/bg/")
+            and not path.endswith(".html")
+            and "." not in Path(path).name
+        ):
+            html_candidate = ROOT / (path.lstrip("/") + ".html")
+            if html_candidate.is_file():
+                path = path + ".html"
+        if path in CHECKOUT_PATHS:
+            index = ROOT / "checkout" / "index.html"
+            if not index.is_file():
+                self.send_error(404, "Checkout missing")
+                return None
+            content = index.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            return BytesIO(content)
         if path.startswith("/admin/"):
             candidate = (ROOT / path.lstrip("/")).resolve()
             try:
@@ -350,6 +415,7 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             content = candidate.read_bytes().replace(
                 b"</body>",
                 b'<script src="/storefront-bridge.js" defer></script>'
+                b'<script src="/cart.js" defer></script>'
                 b'<script src="/age-gate.js" defer></script></body>',
             )
             if (

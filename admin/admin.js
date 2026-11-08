@@ -280,6 +280,7 @@
             <div>
               <div>${escapeHtml(it.title)} × ${it.qty}</div>
               ${it.volume ? `<div class="item-variant">Разфасовка: ${escapeHtml(it.volume)}</div>` : ""}
+              ${it.options ? `<div class="item-variant">${escapeHtml(it.options)}</div>` : ""}
             </div>
             <div>${eur((it.unit_price || 0) * (it.qty || 1))}</div>
           </div>`

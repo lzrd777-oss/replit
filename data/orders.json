@@ -1,5 +1,113 @@
 [
   {
+    "id": "HMP-189232",
+    "created_at": "2026-11-08T01:46:20",
+    "customer_name": "IVAN IVANOV",
+    "first_name": "IVAN",
+    "last_name": "IVANOV",
+    "phone": "0888383838383",
+    "email": "EMAILAMI@ABV.BG",
+    "city": "BURGAS",
+    "postal_code": "8000",
+    "courier": "Econt",
+    "delivery_type": "office",
+    "address": "ULICA 12",
+    "payment": "cod",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "2x-thc-x-cartridge-99-1-ml-ccell-palm-pro",
+        "title": "2x THC-X Cartridge 99% 1 ml + CCELL Palm Pro",
+        "volume": "1 ml",
+        "qty": 1,
+        "unit_price": 65.6,
+        "flavors": [
+          "vkus 1",
+          "vkus 2"
+        ],
+        "color": "Baby Blue",
+        "options": "Вкусове: vkus 1, vkus 2 · Цвят: Baby Blue"
+      }
+    ],
+    "subtotal": 65.6,
+    "discount": 0.0,
+    "promo_code": "",
+    "shipping": 4.0,
+    "total": 69.6
+  },
+  {
+    "id": "HMP-603643",
+    "created_at": "2026-11-08T01:38:17",
+    "customer_name": "Иван Петров",
+    "first_name": "Иван",
+    "last_name": "Петров",
+    "phone": "0888123456",
+    "email": "ivan@example.com",
+    "city": "София",
+    "postal_code": "",
+    "courier": "Econt",
+    "delivery_type": "office",
+    "address": "Еконт офис Люлин 8",
+    "payment": "cod",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "2x-thc-x-cartridge-99-1-ml-ccell-palm-pro",
+        "title": "2x THC-X Cartridge 99% 1 ml + CCELL Palm Pro",
+        "volume": "1 ml",
+        "qty": 1,
+        "unit_price": 65.6,
+        "flavors": [
+          "vkus 1",
+          "vkus 2"
+        ],
+        "color": "Baby Blue",
+        "options": "Вкусове: vkus 1, vkus 2 · Цвят: Baby Blue"
+      }
+    ],
+    "subtotal": 65.6,
+    "discount": 0.0,
+    "promo_code": "",
+    "shipping": 4.0,
+    "total": 69.6
+  },
+  {
+    "id": "HMP-677261",
+    "created_at": "2026-11-08T01:35:44",
+    "customer_name": "Test User",
+    "first_name": "Test",
+    "last_name": "User",
+    "phone": "0888123456",
+    "email": "t@e.com",
+    "city": "Sofia",
+    "postal_code": "",
+    "courier": "Econt",
+    "delivery_type": "office",
+    "address": "Office 1",
+    "payment": "cod",
+    "status": "new_order",
+    "items": [
+      {
+        "product_id": "2x-thc-x-cartridge-99-1-ml-ccell-palm-pro",
+        "title": "2x THC-X Cartridge 99% 1 ml + CCELL Palm Pro",
+        "volume": "1 ml",
+        "qty": 1,
+        "unit_price": 65.6,
+        "flavors": [
+          "vkus 1",
+          "vkus 2"
+        ],
+        "color": "Onyx",
+        "options": "Вкусове: vkus 1, vkus 2 · Цвят: Onyx"
+      }
+    ],
+    "subtotal": 65.6,
+    "discount": 0.0,
+    "promo_code": "",
+    "shipping": 4.0,
+    "total": 69.6
+  },
+  {
     "id": "HMP-918982",
     "created_at": "2026-11-06T8:29:00",
     "customer_name": "Kristian Dimitrov",
@@ -7,7 +115,7 @@
     "city": "София",
     "courier": "Econt",
     "address": "Люлин 8, офис 123",
-    "status": "new_order",
+    "status": "in_process",
     "items": [
       {
         "product_id": "thc-x-cartridge-99-og-kush-1-ml",

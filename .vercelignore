@@ -1,0 +1,10 @@
+.cursor
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.git
+*.tmp
+scripts/__pycache__
+agent-transcripts

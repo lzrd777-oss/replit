@@ -3,3 +3,9 @@
 /data/*.tmp
 /scripts/__pycache__/
 /scripts/debug_extract.py
+.env
+.env.*
+!.env.example
+*.pyc
+.vercel
+.vercel/

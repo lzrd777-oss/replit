@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Количка – HHC-STORE</title>
+  <link rel="icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/checkout/checkout.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="/hhc-store-logo.svg" alt="HHC-STORE" />
+    </a>
+    <a class="back-shop" href="/">← Към магазина</a>
+  </header>
+
+  <main class="checkout">
+    <nav class="steps" aria-label="Стъпки">
+      <div class="step active" data-step-indicator="1">
+        <span class="num">1</span>
+        <span class="label">Количка</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step-indicator="2">
+        <span class="num">2</span>
+        <span class="label">Доставка</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step-indicator="3">
+        <span class="num">3</span>
+        <span class="label">Лични данни</span>
+      </div>
+    </nav>
+
+    <div class="layout">
+      <section class="main-col">
+        <!-- Step 1: Cart -->
+        <div id="step-1" class="panel">
+          <div id="cart-items" class="cart-items"></div>
+          <div id="empty-cart" class="empty-cart hidden">
+            <h2>Количката е празна</h2>
+            <p>Добавете продукт от магазина, за да продължите.</p>
+            <a class="btn-green" href="/">Към магазина</a>
+          </div>
+          <div id="upsell-wrap" class="upsell hidden">
+            <h3>Може да ви бъде полезно</h3>
+            <div id="upsell-list" class="upsell-list"></div>
+          </div>
+        </div>
+
+        <!-- Step 2: Delivery + Payment -->
+        <div id="step-2" class="panel hidden">
+          <h2 class="section-title">1. Доставка с Еконт (Econt)</h2>
+          <div class="option-list" id="delivery-options">
+            <label class="option-card selected">
+              <input type="radio" name="delivery_type" value="office" checked />
+              <div class="option-body">
+                <div class="option-title">Еконт (Econt) – До офис или Еконтомат</div>
+                <div class="option-sub">Вземете пратката си удобно от най-близкия офис или автомат</div>
+              </div>
+              <div class="option-price">4,00 €</div>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="delivery_type" value="address" />
+              <div class="option-body">
+                <div class="option-title">Еконт (Econt) – До личен адрес</div>
+                <div class="option-sub">Експресна доставка с куриер до вашата врата</div>
+              </div>
+              <div class="option-price">5,00 €</div>
+            </label>
+          </div>
+
+          <h2 class="section-title">2. Начин на плащане</h2>
+          <div class="option-list">
+            <label class="option-card selected">
+              <input type="radio" name="payment" value="cod" checked />
+              <div class="option-body">
+                <div class="option-title">Наложен платеж (Плащане при доставка)</div>
+                <div class="option-sub">Плащате в брой или с карта на куриера при преглед</div>
+              </div>
+              <div class="option-price free">0,00 €</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 3: Personal data -->
+        <div id="step-3" class="panel hidden">
+          <h2 class="section-title">3. Данни за доставка</h2>
+          <form id="checkout-form" class="form-grid" autocomplete="on">
+            <label>
+              <span>Име *</span>
+              <input name="first_name" required placeholder="Иван" />
+            </label>
+            <label>
+              <span>Фамилия *</span>
+              <input name="last_name" required placeholder="Иванов" />
+            </label>
+            <label>
+              <span>Телефон *</span>
+              <input name="phone" required type="tel" placeholder="0888 123 456" />
+            </label>
+            <label>
+              <span>Имейл *</span>
+              <input name="email" required type="email" placeholder="ivan@example.com" />
+            </label>
+            <label class="span-grow">
+              <span>Град / Населено място *</span>
+              <input name="city" required placeholder="София" />
+            </label>
+            <label class="span-narrow">
+              <span>Пощенски код</span>
+              <input name="postal_code" placeholder="1000" />
+            </label>
+            <label class="span-full">
+              <span>Точен адрес за доставка или име/адрес на офис на куриера *</span>
+              <input name="address" required placeholder="ул. Примерна 15, вх. А или офис на Спиди Цариградско" />
+            </label>
+          </form>
+          <div class="secure-box">
+            <div class="lock">🔒</div>
+            <div>
+              <strong>Защитена поръчка</strong>
+              <p>Вашите данни са криптирани и се използват само за целите на куриерската доставка.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="summary-col">
+        <div class="summary-card">
+          <h3 id="summary-title">Обобщение на поръчката</h3>
+          <div class="summary-rows" id="summary-rows">
+            <div class="row"><span>Междинна сума</span><span id="sum-subtotal">0,00 €</span></div>
+            <div class="row discount-row hidden" id="discount-row"><span>Отстъпка</span><span id="sum-discount">−0,00 €</span></div>
+            <div class="row"><span>Доставка</span><span id="sum-shipping">4,00 €</span></div>
+            <div class="row total">
+              <span>Общо за плащане:</span>
+              <div class="total-stack">
+                <strong id="sum-total">0,00 €</strong>
+                <small id="sum-bgn">0.00 лв.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="promo">
+            <input id="promo-input" type="text" placeholder="Код за отстъпка (VIP10)" />
+            <button type="button" id="promo-btn">Приложи</button>
+          </div>
+          <p id="promo-msg" class="promo-msg"></p>
+
+          <button type="button" class="confirm-btn" id="confirm-btn">Потвърди поръчката →</button>
+
+          <ul class="trust">
+            <li>✓ 100% Дискретна опаковка без външни обозначения</li>
+            <li>✓ Преглед на пратката преди плащане</li>
+            <li>✓ 14 дни право на връщане</li>
+          </ul>
+        </div>
+        <p id="form-error" class="form-error"></p>
+      </aside>
+    </div>
+  </main>
+
+  <div id="success-overlay" class="overlay hidden">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>Поръчката е приета!</h2>
+      <p>Номер на поръчка: <strong id="success-id"></strong></p>
+      <p>Ще се свържем с вас за потвърждение.</p>
+      <a class="btn-green" href="/">Към магазина</a>
+    </div>
+  </div>
+
+  <script src="/checkout/checkout.js"></script>
+</body>
+</html>
