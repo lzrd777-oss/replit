@@ -31,6 +31,12 @@ CHECKOUT_PATHS = {
     "/bg/checkout",
     "/bg/checkout.html",
 }
+PRODUCTS_PATHS = {
+    "/bg/produkty",
+    "/bg/produkty.html",
+    "/produkty",
+    "/produkty/",
+}
 
 
 def _json_bytes(payload: object, status: int = 200) -> tuple[int, bytes, str]:
@@ -358,6 +364,19 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             index = ROOT / "checkout" / "index.html"
             if not index.is_file():
                 self.send_error(404, "Checkout missing")
+                return None
+            content = index.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            return BytesIO(content)
+        if path in PRODUCTS_PATHS:
+            index = ROOT / "produkty" / "index.html"
+            if not index.is_file():
+                self.send_error(404, "Products page missing")
                 return None
             content = index.read_bytes()
             self.send_response(200)

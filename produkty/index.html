@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Продукти – HHC-STORE</title>
+  <link rel="icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/produkty/produkty.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="/hhc-store-logo.svg" alt="HHC-STORE" />
+    </a>
+    <nav class="top-links">
+      <a href="/">Начало</a>
+      <a href="/checkout">Количка</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Всички продукти</h1>
+        <p id="count-label">Зареждане…</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <input id="search-input" type="search" placeholder="Търси продукт…" autocomplete="off" />
+      <select id="category-filter" aria-label="Категория">
+        <option value="all">Всички категории</option>
+      </select>
+      <select id="stock-filter" aria-label="Наличност">
+        <option value="all">Всички</option>
+        <option value="in">В наличност</option>
+        <option value="out">Изчерпани</option>
+      </select>
+    </div>
+
+    <p id="status" class="status">Зареждане на продукти…</p>
+    <div id="product-grid" class="grid"></div>
+    <div id="empty-state" class="empty hidden">Няма продукти по избраните филтри.</div>
+  </main>
+
+  <script src="/storefront-bridge.js" defer></script>
+  <script src="/cart.js" defer></script>
+  <script src="/produkty/produkty.js" defer></script>
+</body>
+</html>
