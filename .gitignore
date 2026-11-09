@@ -9,3 +9,4 @@
 *.pyc
 .vercel
 .vercel/
+.env*

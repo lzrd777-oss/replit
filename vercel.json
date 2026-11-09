@@ -6,14 +6,15 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
+    { "source": "/bg/kosik", "destination": "/checkout", "permanent": false },
+    { "source": "/bg/kosik.html", "destination": "/checkout", "permanent": false },
+    { "source": "/kosik", "destination": "/checkout", "permanent": false },
+    { "source": "/kosik.html", "destination": "/checkout", "permanent": false },
     { "source": "/bg.html", "destination": "/", "permanent": true },
     { "source": "/:path*.html", "destination": "/:path*", "permanent": true }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/bg/kosik", "destination": "/checkout/index.html" },
-    { "source": "/bg/kosik.html", "destination": "/checkout/index.html" },
-    { "source": "/kosik", "destination": "/checkout/index.html" },
     { "source": "/checkout", "destination": "/checkout/index.html" },
     { "source": "/checkout/", "destination": "/checkout/index.html" },
     { "source": "/admin", "destination": "/admin/index.html" },

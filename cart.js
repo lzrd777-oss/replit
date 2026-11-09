@@ -421,7 +421,7 @@
       writeCart(items);
       close();
       toast("Добавено в количката");
-      if (goCheckout) setTimeout(() => (location.href = "/bg/kosik"), 350);
+      if (goCheckout) setTimeout(() => (location.href = "/checkout"), 350);
     }
 
     root.addEventListener("click", (e) => {
@@ -485,7 +485,7 @@
     }
     writeCart(items);
     toast("Добавено в количката");
-    setTimeout(() => (location.href = "/bg/kosik"), 350);
+    setTimeout(() => (location.href = "/checkout"), 350);
   }
 
   function addConfiguredFromPdp() {
@@ -510,7 +510,7 @@
     });
     writeCart(items);
     toast("Добавено в количката");
-    setTimeout(() => (location.href = "/bg/kosik"), 350);
+    setTimeout(() => (location.href = "/checkout"), 350);
   }
 
   function isPdpCta(el) {

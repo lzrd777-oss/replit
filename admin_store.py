@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -25,10 +27,45 @@ STATUS_LABELS_BG = {
 }
 
 _lock = threading.RLock()
-_sessions: dict[str, float] = {}  # token -> expiry ts
+_sessions: dict[str, float] = {}  # local/dev fallback only
 SESSION_TTL = 60 * 60 * 12
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "hhc-admin")
+
+
+def _admin_password() -> str:
+    return os.environ.get("ADMIN_PASSWORD") or ADMIN_PASSWORD or "hhc-admin"
+
+
+def _session_secret() -> bytes:
+    # Prefer dedicated secret; fall back to admin password so Vercel works without new env.
+    raw = os.environ.get("ADMIN_SESSION_SECRET") or _admin_password()
+    return raw.encode("utf-8")
+
+
+def _sign_session(exp: int, nonce: str) -> str:
+    payload = f"{exp}.{nonce}"
+    sig = hmac.new(_session_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def _verify_signed_session(token: str) -> bool:
+    parts = token.split(".")
+    if len(parts) != 3:
+        return False
+    exp_s, nonce, sig = parts
+    try:
+        exp = int(exp_s)
+    except ValueError:
+        return False
+    if exp < int(time.time()):
+        return False
+    if not nonce or not sig:
+        return False
+    expected = hmac.new(
+        _session_secret(), f"{exp_s}.{nonce}".encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, sig)
 
 _supabase_ready: bool | None = None
 
@@ -318,11 +355,14 @@ def ensure_seed_data() -> None:
 
 
 def login(password: str) -> str | None:
-    if password != ADMIN_PASSWORD:
+    if password != _admin_password():
         return None
-    token = secrets.token_urlsafe(32)
+    # Signed tokens work across Vercel serverless instances (no shared memory).
+    exp = int(time.time()) + SESSION_TTL
+    nonce = secrets.token_urlsafe(16)
+    token = _sign_session(exp, nonce)
     with _lock:
-        _sessions[token] = time.time() + SESSION_TTL
+        _sessions[token] = float(exp)
     return token
 
 
@@ -336,6 +376,9 @@ def logout(token: str | None) -> None:
 def valid_session(token: str | None) -> bool:
     if not token:
         return False
+    if _verify_signed_session(token):
+        return True
+    # Legacy in-memory tokens (local single-process server).
     with _lock:
         exp = _sessions.get(token)
         if not exp:
