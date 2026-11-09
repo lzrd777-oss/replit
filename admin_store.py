@@ -668,12 +668,21 @@ def create_order(payload: dict) -> dict:
         import supabase_client as sb
 
         rows = sb.insert("orders", _order_to_row(order))
-        return _order_from_row(rows[0]) if rows else order
+        saved = _order_from_row(rows[0]) if rows else order
+    else:
+        orders = list_orders()
+        orders.insert(0, order)
+        save_orders(orders)
+        saved = order
 
-    orders = list_orders()
-    orders.insert(0, order)
-    save_orders(orders)
-    return order
+    try:
+        import telegram_notify
+
+        telegram_notify.notify_new_order(saved)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[telegram] notify error: {exc}", flush=True)
+
+    return saved
 
 
 def stats() -> dict:
