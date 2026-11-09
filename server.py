@@ -374,7 +374,7 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             return BytesIO(content)
         if path in PRODUCTS_PATHS:
-            index = ROOT / "produkty" / "index.html"
+            index = ROOT / "bg" / "produkty.html"
             if not index.is_file():
                 self.send_error(404, "Products page missing")
                 return None

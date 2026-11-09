@@ -1,12 +1,14 @@
 (() => {
   const CATALOG_URL = "/api/catalog";
   const FALLBACK_URL = "/storage/catalog.json";
+  const PC = "ProductCard-module__ba2BAq__";
 
   const state = {
     products: [],
-    query: "",
     category: "all",
-    stock: "all",
+    inStockOnly: false,
+    priceFrom: null,
+    priceTo: null,
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -18,12 +20,14 @@
     return [];
   }
 
-  function productHref(p) {
-    const slug = encodeURIComponent(p.slug || p.id || "");
-    return `/bg/produkt/${slug}`;
+  function isVisibleProduct(p) {
+    if (!p || p.archived) return false;
+    // Products without images / banned categories are deleted from the DB.
+    // Keep a hard guard so empty image rows never render if any reappear.
+    return Boolean(String(p.image || "").trim());
   }
 
-  function escapeHtml(s) {
+  function esc(s) {
     return String(s || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -31,66 +35,151 @@
       .replace(/"/g, "&quot;");
   }
 
+  function money(n) {
+    const v = Number(n) || 0;
+    return (
+      v.toLocaleString("bg-BG", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + "\u00a0€"
+    );
+  }
+
+  function typeLabel(p) {
+    const cat = (p.category || "").trim();
+    const lab = (p.lab_label || "").trim();
+    if (cat && lab && lab.toLowerCase() !== cat.toLowerCase()) return `${cat} · ${lab}`;
+    return cat || lab || "Продукт";
+  }
+
+  function hrefFor(p) {
+    return `/bg/produkt/${encodeURIComponent(p.slug || p.id || "")}`;
+  }
+
   function filtered() {
-    const q = state.query.trim().toLowerCase();
     return state.products.filter((p) => {
-      if (p.archived) return false;
+      if (!isVisibleProduct(p)) return false;
       if (state.category !== "all" && (p.category || "") !== state.category) return false;
-      if (state.stock === "in" && !p.in_stock) return false;
-      if (state.stock === "out" && p.in_stock) return false;
-      if (!q) return true;
-      const hay = `${p.title || ""} ${p.category || ""} ${p.lab_label || ""}`.toLowerCase();
-      return hay.includes(q);
+      if (state.inStockOnly && !p.in_stock) return false;
+      const price = Number(p.price) || 0;
+      if (state.priceFrom != null && price < state.priceFrom) return false;
+      if (state.priceTo != null && price > state.priceTo) return false;
+      return true;
     });
   }
 
-  function fillCategories() {
-    const cats = [...new Set(state.products.map((p) => p.category).filter(Boolean))].sort(
-      (a, b) => a.localeCompare(b, "bg")
-    );
-    const sel = $("#category-filter");
-    sel.innerHTML =
-      `<option value="all">Всички категории</option>` +
-      cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  function cardHtml(p) {
+    const img = esc(p.image || "");
+    const title = esc(p.title || p.id || "");
+    const price = money(p.price);
+    const member =
+      p.member_price != null && p.member_price !== ""
+        ? money(p.member_price)
+        : money((Number(p.price) || 0) * 0.95);
+    const stockText = esc(p.stock_text || (p.in_stock ? "В наличност (5+ бр.)" : "Изчерпан"));
+    const stockClass = p.in_stock ? "" : `${PC}stockOut`;
+    const href = hrefFor(p);
+    return `
+<article class="${PC}card ">
+  <div class="${PC}media">
+    <button type="button" class="${PC}wish " aria-label="Добави в любими" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"></path></svg>
+    </button>
+    <a href="${href}">${
+      img
+        ? `<img src="${img}" alt="${title}" loading="lazy" decoding="async" />`
+        : ""
+    }</a>
+  </div>
+  <div class="${PC}body">
+    <div class="${PC}type">${esc(typeLabel(p))}</div>
+    <a class="${PC}title" href="${href}"><span class="${PC}titleText">${title}</span></a>
+    <div class="${PC}rating" aria-label="5.0 от 5"><span class="${PC}stars">★★★★★</span><span class="${PC}reviewCount">(5)</span></div>
+    <div class="${PC}stock ${stockClass}"><span class="${PC}stockDot" aria-hidden="true"></span><span>${stockText}</span></div>
+    <div class="${PC}priceGrid">
+      <div class="${PC}priceCol">
+        <div class="${PC}priceLabel">Редовна цена</div>
+        <div class="${PC}price ">${esc(p.price_text || price)}</div>
+        <div class="${PC}priceNote">Цена за 1 бр.</div>
+      </div>
+      <div class="${PC}priceCol ${PC}member">
+        <div class="${PC}priceLabel">След вход</div>
+        <div class="${PC}price">${esc(p.member_text || member)}</div>
+        <div class="${PC}priceNote">Спестявате 5 %</div>
+      </div>
+    </div>
+    <a class="${PC}cta" href="${href}" style="text-decoration:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" width="18" height="18"><path d="M4 5h2l2 10h9l2-7H7"></path><circle cx="10" cy="19" r="1.2"></circle><circle cx="17" cy="19" r="1.2"></circle></svg>
+      Избери
+    </a>
+  </div>
+</article>`;
+  }
+
+  function updateCounts(items) {
+    const n = items.length;
+    document.querySelectorAll("#hhc-apply-count").forEach((el) => {
+      el.textContent = String(n);
+    });
+    const status = $("#hhc-live-status");
+    if (status) status.textContent = `${n} продукта`;
+    // Update "Всички продукти" count in sidebar if present
+    document.querySelectorAll('a[href="/bg/produkty"] .Katalog-module__iT4WXq__katPocet').forEach((el) => {
+      el.textContent = String(state.products.filter((p) => !p.archived).length);
+    });
   }
 
   function render() {
-    const items = filtered();
-    $("#count-label").textContent = `${items.length} продукта`;
-    const grid = $("#product-grid");
-    const empty = $("#empty-state");
-    if (!items.length) {
-      grid.innerHTML = "";
-      empty.classList.remove("hidden");
-      return;
-    }
-    empty.classList.add("hidden");
-    grid.innerHTML = items
-      .map((p) => {
-        const img = p.image
-          ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}" loading="lazy" />`
-          : `<span style="color:#8b968f">Няма снимка</span>`;
-        const stockClass = p.in_stock ? "" : "out";
-        const stockText = p.stock_text || (p.in_stock ? "В наличност" : "Изчерпан");
-        return `
-          <a class="card" href="${productHref(p)}">
-            <div class="card-media">${img}</div>
-            <div class="card-body">
-              <div class="card-cat">${escapeHtml(p.category || "")}</div>
-              <h2 class="card-title">${escapeHtml(p.title || p.id)}</h2>
-              <div class="card-meta">
-                <span class="price">${escapeHtml(p.price_text || "")}</span>
-                <span class="stock ${stockClass}">${escapeHtml(stockText)}</span>
-              </div>
-            </div>
-          </a>`;
-      })
-      .join("");
+    const grid = $("#hhc-product-grid");
+    if (!grid) return;
+    const items = filtered().sort((a, b) =>
+      String(a.title || "").localeCompare(String(b.title || ""), "bg")
+    );
+    updateCounts(items);
+    grid.innerHTML = items.map(cardHtml).join("") || `<p style="padding:24px;opacity:.7">Няма продукти по избраните филтри.</p>`;
   }
 
-  async function loadCatalog() {
-    $("#status").textContent = "Зареждане на продукти…";
-    $("#status").classList.remove("hidden");
+  function readFilters() {
+    const stock = $("#hhc-filter-stock");
+    state.inStockOnly = !!(stock && stock.checked);
+    const from = $("#hhc-price-from");
+    const to = $("#hhc-price-to");
+    const fromV = from && String(from.value || "").trim();
+    const toV = to && String(to.value || "").trim();
+    state.priceFrom = fromV ? Number(String(fromV).replace(",", ".")) : null;
+    state.priceTo = toV ? Number(String(toV).replace(",", ".")) : null;
+    if (Number.isNaN(state.priceFrom)) state.priceFrom = null;
+    if (Number.isNaN(state.priceTo)) state.priceTo = null;
+  }
+
+  function bind() {
+    const apply = $("#hhc-apply-filters");
+    if (apply) {
+      apply.addEventListener("click", () => {
+        readFilters();
+        render();
+      });
+    }
+    const stock = $("#hhc-filter-stock");
+    if (stock) {
+      stock.addEventListener("change", () => {
+        readFilters();
+        render();
+      });
+    }
+    ["hhc-price-from", "hhc-price-to"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("change", () => {
+        readFilters();
+        render();
+      });
+    });
+  }
+
+  async function load() {
+    const status = $("#hhc-live-status");
+    if (status) status.textContent = "Зареждане…";
     let payload = null;
     for (const url of [`${CATALOG_URL}?t=${Date.now()}`, FALLBACK_URL]) {
       try {
@@ -99,32 +188,28 @@
         payload = await res.json();
         break;
       } catch {
-        /* try next */
+        /* next */
       }
     }
-    $("#status").classList.add("hidden");
-    state.products = productList(payload).sort((a, b) =>
-      String(a.title || "").localeCompare(String(b.title || ""), "bg")
-    );
-    fillCategories();
+    state.products = productList(payload).filter(isVisibleProduct);
+    pruneDeadCategoryNav();
+    readFilters();
     render();
   }
 
-  function bind() {
-    $("#search-input").addEventListener("input", (e) => {
-      state.query = e.target.value || "";
-      render();
-    });
-    $("#category-filter").addEventListener("change", (e) => {
-      state.category = e.target.value || "all";
-      render();
-    });
-    $("#stock-filter").addEventListener("change", (e) => {
-      state.stock = e.target.value || "all";
-      render();
+  function pruneDeadCategoryNav() {
+    // Category pages for these were deleted; remove dead sidebar/chip links.
+    const kill = /greenz\s*hemp|gummies|infused\s*pre[-\s]?rolls?/i;
+    document.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href") || "";
+      const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+      if (!kill.test(href) && !kill.test(text)) return;
+      if (text.length > 80) return;
+      const row = a.closest("li") || a;
+      row.remove();
     });
   }
 
   bind();
-  loadCatalog();
+  load();
 })();
