@@ -42,8 +42,57 @@ button, input { font: inherit; }
   top: 0;
   z-index: 20;
 }
-.brand img { height: 34px; width: auto; display: block; }
-.back-shop { color: var(--muted); font-size: 14px; }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.brand img {
+  height: 34px;
+  width: auto;
+  display: block;
+  /* Logo SVG paths are black — invert for dark checkout header */
+  filter: brightness(0) invert(1);
+}
+.brand-text { font-size: 18px; color: #fff; }
+.menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: #fff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+}
+.menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+}
+.top-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.top-nav a {
+  color: #d7e0da;
+  font-size: 14px;
+  font-weight: 600;
+}
+.top-nav a:hover { color: var(--green); }
+.back-shop { color: #d7e0da; font-size: 14px; }
 .back-shop:hover { color: var(--green); }
 
 .checkout {
@@ -510,5 +559,25 @@ button, input { font: inherit; }
   .upsell-list { grid-template-columns: 1fr 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .checkout { width: min(100% - 20px, 1120px); }
-  .topbar { padding: 14px 16px; }
+  .topbar {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .menu-toggle { display: inline-flex; }
+  .top-nav {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding-top: 6px;
+  }
+  .topbar.nav-open .top-nav { display: flex; }
+  .top-nav a {
+    padding: 12px 4px;
+    border-top: 1px solid var(--border-soft);
+    color: #e8efea;
+    font-size: 15px;
+  }
 }

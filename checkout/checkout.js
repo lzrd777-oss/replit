@@ -2,6 +2,7 @@
   const KEY = "hhc_cart_v1";
   const PROMO_KEY = "hhc_promo_v1";
   const EUR_TO_BGN = 1.95583;
+  const MAX_QTY = 100;
 
   const state = {
     step: 1,
@@ -33,10 +34,16 @@
     );
   }
 
+  function clampQty(n) {
+    const v = Number(n) || 1;
+    return Math.min(MAX_QTY, Math.max(1, v));
+  }
+
   function readCart() {
     try {
       const raw = JSON.parse(localStorage.getItem(KEY) || "[]");
-      return Array.isArray(raw) ? raw : [];
+      if (!Array.isArray(raw)) return [];
+      return raw.map((it) => ({ ...it, qty: clampQty(it.qty) }));
     } catch {
       return [];
     }
@@ -219,7 +226,7 @@
     }
     const items = readCart();
     const existing = items.find((i) => i.product_id === productId && !i.flavors?.length && !i.color);
-    if (existing) existing.qty = (existing.qty || 1) + 1;
+    if (existing) existing.qty = Math.min(MAX_QTY, (existing.qty || 1) + 1);
     else {
       items.push({
         product_id: p.id,
@@ -321,7 +328,7 @@
       const qtyBtn = e.target.closest("[data-qty]");
       if (qtyBtn) {
         const delta = Number(qtyBtn.dataset.qty);
-        items[idx].qty = Math.max(1, (items[idx].qty || 1) + delta);
+        items[idx].qty = Math.min(MAX_QTY, Math.max(1, (items[idx].qty || 1) + delta));
         writeCart(items);
         renderCart();
       }
@@ -384,9 +391,20 @@
     });
   }
 
+  function bindMenu() {
+    const bar = $("#topbar");
+    const btn = $("#menu-toggle");
+    if (!bar || !btn) return;
+    btn.addEventListener("click", () => {
+      const open = bar.classList.toggle("nav-open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
   async function init() {
     await loadCatalog();
     bind();
+    bindMenu();
     renderCart();
     setStep(1);
   }

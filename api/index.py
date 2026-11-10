@@ -20,6 +20,7 @@ except Exception:
     pass
 
 import admin_store
+import auth_store
 import storefront_sync
 
 
@@ -40,16 +41,54 @@ def _read_json(handler: BaseHTTPRequestHandler) -> dict:
         return {}
 
 
-def _token(handler: BaseHTTPRequestHandler) -> str | None:
+def _cookie(handler: BaseHTTPRequestHandler, name: str) -> str | None:
     cookie = handler.headers.get("Cookie", "")
+    prefix = f"{name}="
     for part in cookie.split(";"):
         part = part.strip()
-        if part.startswith("hhc_admin="):
+        if part.startswith(prefix):
             return part.split("=", 1)[1].strip() or None
+    return None
+
+
+def _token(handler: BaseHTTPRequestHandler) -> str | None:
+    token = _cookie(handler, "hhc_admin")
+    if token:
+        return token
     auth = handler.headers.get("Authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip() or None
     return None
+
+
+def _user_token(handler: BaseHTTPRequestHandler) -> str | None:
+    return _cookie(handler, "hhc_user")
+
+
+def _admin_authorized(handler: BaseHTTPRequestHandler) -> bool:
+    if admin_store.valid_session(_token(handler)):
+        return True
+    return auth_store.is_admin_token(_user_token(handler))
+
+
+def _secure_cookie_flag() -> str:
+    return "; Secure" if os.environ.get("VERCEL") == "1" else ""
+
+
+def _set_user_cookie(token: str) -> str:
+    return (
+        f"hhc_user={token}; Path=/; Max-Age={auth_store.SESSION_TTL}; "
+        f"HttpOnly; SameSite=Lax{_secure_cookie_flag()}"
+    )
+
+
+def _clear_user_cookie() -> str:
+    return "hhc_user=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"
+
+
+def _serve_html_file(handler: BaseHTTPRequestHandler, file_path: Path, status: int = 200) -> None:
+    body = file_path.read_bytes()
+    _send(handler, status, body, "text/html; charset=utf-8")
 
 
 def _send(
@@ -67,22 +106,53 @@ def _send(
     handler.send_header("Access-Control-Allow-Credentials", "true")
     if extra_headers:
         for k, v in extra_headers.items():
-            handler.send_header(k, v)
+            if isinstance(v, (list, tuple)):
+                for item in v:
+                    handler.send_header(k, item)
+            else:
+                handler.send_header(k, v)
     handler.end_headers()
     handler.wfile.write(body)
 
 
 def _dispatch(handler: BaseHTTPRequestHandler, method: str) -> None:
-    path = unquote(urlsplit(handler.path).path)
+    parsed = urlsplit(handler.path)
+    path = unquote(parsed.path)
+    query = parsed.query or ""
     if not path.startswith("/api"):
         # Rewrite destination may leave path as /index or /
         path = "/api" + (path if path.startswith("/") else f"/{path}")
+    if path in {"/api", "/api/"} and "page=admin-gate" in query and method == "GET":
+        if _admin_authorized(handler):
+            _serve_html_file(handler, ROOT / "admin" / "app.html")
+        else:
+            not_found = ROOT / "404.html"
+            if not_found.is_file():
+                _serve_html_file(handler, not_found, 404)
+            else:
+                status, body, ctype = _json_bytes({"error": "Not found"}, 404)
+                _send(handler, status, body, ctype)
+        return
+
     if path in {"/api", "/api/"}:
         status, body, ctype = _json_bytes({"ok": True, "service": "hhc-store-api"})
         _send(handler, status, body, ctype)
         return
 
     try:
+        # /admin rewrite may preserve original path; never treat it as JSON admin API.
+        if path in {"/admin", "/admin/", "/api/admin", "/api/admin/"} and method == "GET":
+            if _admin_authorized(handler):
+                _serve_html_file(handler, ROOT / "admin" / "app.html")
+            else:
+                not_found = ROOT / "404.html"
+                if not_found.is_file():
+                    _serve_html_file(handler, not_found, 404)
+                else:
+                    status, body, ctype = _json_bytes({"error": "Not found"}, 404)
+                    _send(handler, status, body, ctype)
+            return
+
         if path in {"/api/catalog", "/api/catalog.json"} and method == "GET":
             payload = storefront_sync.build_catalog_payload(admin_store.list_products())
             status, body, ctype = _json_bytes(payload)
@@ -93,6 +163,55 @@ def _dispatch(handler: BaseHTTPRequestHandler, method: str) -> None:
             order = admin_store.create_order(_read_json(handler))
             status, body, ctype = _json_bytes({"ok": True, "order": order}, 201)
             _send(handler, status, body, ctype)
+            return
+
+        if path == "/api/auth/register" and method == "POST":
+            data = _read_json(handler)
+            result = auth_store.register(
+                str(data.get("email") or ""),
+                str(data.get("password") or ""),
+                name=str(data.get("name") or ""),
+            )
+            status, body, ctype = _json_bytes(
+                {"ok": True, "user": result["user"]}, 201
+            )
+            _send(handler, status, body, ctype, {"Set-Cookie": _set_user_cookie(result["token"])})
+            return
+
+        if path == "/api/auth/login" and method == "POST":
+            data = _read_json(handler)
+            result = auth_store.login(
+                str(data.get("email") or ""),
+                str(data.get("password") or ""),
+            )
+            status, body, ctype = _json_bytes({"ok": True, "user": result["user"]})
+            _send(handler, status, body, ctype, {"Set-Cookie": _set_user_cookie(result["token"])})
+            return
+
+        if path == "/api/auth/logout" and method == "POST":
+            status, body, ctype = _json_bytes({"ok": True})
+            _send(handler, status, body, ctype, {"Set-Cookie": _clear_user_cookie()})
+            return
+
+        if path == "/api/auth/session" and method == "GET":
+            session = auth_store.session_from_token(_user_token(handler))
+            if not session:
+                status, body, ctype = _json_bytes({"ok": False}, 401)
+            else:
+                status, body, ctype = _json_bytes(session)
+            _send(handler, status, body, ctype)
+            return
+
+        if path in {"/api/admin-page", "/api/admin/page"} and method == "GET":
+            if _admin_authorized(handler):
+                _serve_html_file(handler, ROOT / "admin" / "app.html")
+            else:
+                not_found = ROOT / "404.html"
+                if not_found.is_file():
+                    _serve_html_file(handler, not_found, 404)
+                else:
+                    status, body, ctype = _json_bytes({"error": "Not found"}, 404)
+                    _send(handler, status, body, ctype)
             return
 
         if path == "/api/admin/login" and method == "POST":
@@ -126,12 +245,17 @@ def _dispatch(handler: BaseHTTPRequestHandler, method: str) -> None:
                 status,
                 body,
                 ctype,
-                {"Set-Cookie": "hhc_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"},
+                {
+                    "Set-Cookie": [
+                        "hhc_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+                        "hhc_user=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+                    ]
+                },
             )
             return
 
         if path == "/api/admin/session" and method == "GET":
-            status, body, ctype = _json_bytes({"ok": admin_store.valid_session(_token(handler))})
+            status, body, ctype = _json_bytes({"ok": _admin_authorized(handler)})
             _send(handler, status, body, ctype)
             return
 
@@ -140,7 +264,7 @@ def _dispatch(handler: BaseHTTPRequestHandler, method: str) -> None:
             _send(handler, status, body, ctype)
             return
 
-        if not admin_store.valid_session(_token(handler)):
+        if not _admin_authorized(handler):
             status, body, ctype = _json_bytes({"ok": False, "error": "Unauthorized"}, 401)
             _send(handler, status, body, ctype)
             return

@@ -594,7 +594,7 @@ def create_order(payload: dict) -> dict:
             continue
         pid = str(raw.get("product_id") or raw.get("id") or "").strip()
         product = products_by_id.get(pid)
-        qty = max(1, int(raw.get("qty") or 1))
+        qty = min(100, max(1, int(raw.get("qty") or 1)))
         if product:
             if product.get("archived") or not product.get("in_stock"):
                 raise ValueError(f"Продуктът „{product.get('title') or pid}“ не е наличен")

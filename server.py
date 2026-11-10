@@ -10,11 +10,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import admin_store
+import auth_store
 
 ROOT = Path(__file__).resolve().parent
-PUBLIC_DIRECTORIES = {"_next", "bg", "brand", "storage", "admin", "checkout"}
+PUBLIC_DIRECTORIES = {"_next", "bg", "brand", "storage", "admin", "checkout", "account"}
 PUBLIC_FILES = {
     "index.html",
+    "404.html",
     "hhc-store-logo.svg",
     "icon.svg",
     "age-gate.js",
@@ -48,19 +50,92 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
-    def _token(self) -> str | None:
+    def _cookie(self, name: str) -> str | None:
         cookie = self.headers.get("Cookie", "")
+        prefix = f"{name}="
         for part in cookie.split(";"):
             part = part.strip()
-            if part.startswith("hhc_admin="):
+            if part.startswith(prefix):
                 return part.split("=", 1)[1].strip() or None
+        return None
+
+    def _token(self) -> str | None:
+        token = self._cookie("hhc_admin")
+        if token:
+            return token
         auth = self.headers.get("Authorization", "")
         if auth.lower().startswith("bearer "):
             return auth[7:].strip() or None
         return None
 
+    def _user_token(self) -> str | None:
+        return self._cookie("hhc_user")
+
     def _require_admin(self) -> bool:
-        return admin_store.valid_session(self._token())
+        if admin_store.valid_session(self._token()):
+            return True
+        return auth_store.is_admin_token(self._user_token())
+
+    def _set_user_cookie(self, token: str) -> str:
+        return (
+            f"hhc_user={token}; Path=/; Max-Age={auth_store.SESSION_TTL}; "
+            "HttpOnly; SameSite=Lax"
+        )
+
+    def _serve_not_found(self):
+        page = ROOT / "404.html"
+        if page.is_file():
+            body = page.read_bytes()
+            self._send(404, body, "text/html; charset=utf-8")
+            return
+        self.send_error(404)
+
+    def _handle_auth_api(self, method: str, path: str):
+        try:
+            if path == "/api/auth/register" and method == "POST":
+                data = self._read_json()
+                result = auth_store.register(
+                    str(data.get("email") or ""),
+                    str(data.get("password") or ""),
+                    name=str(data.get("name") or ""),
+                )
+                status, body, ctype = _json_bytes({"ok": True, "user": result["user"]}, 201)
+                self._send(status, body, ctype, {"Set-Cookie": self._set_user_cookie(result["token"])})
+                return
+            if path == "/api/auth/login" and method == "POST":
+                data = self._read_json()
+                result = auth_store.login(
+                    str(data.get("email") or ""),
+                    str(data.get("password") or ""),
+                )
+                status, body, ctype = _json_bytes({"ok": True, "user": result["user"]})
+                self._send(status, body, ctype, {"Set-Cookie": self._set_user_cookie(result["token"])})
+                return
+            if path == "/api/auth/logout" and method == "POST":
+                status, body, ctype = _json_bytes({"ok": True})
+                self._send(
+                    status,
+                    body,
+                    ctype,
+                    {"Set-Cookie": "hhc_user=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"},
+                )
+                return
+            if path == "/api/auth/session" and method == "GET":
+                session = auth_store.session_from_token(self._user_token())
+                if not session:
+                    status, body, ctype = _json_bytes({"ok": False}, 401)
+                else:
+                    status, body, ctype = _json_bytes(session)
+                self._send(status, body, ctype)
+                return
+            status, body, ctype = _json_bytes({"error": "Not found"}, 404)
+            self._send(status, body, ctype)
+        except ValueError as exc:
+            status, body, ctype = _json_bytes({"error": str(exc)}, 400)
+            self._send(status, body, ctype)
+        except Exception as exc:  # noqa: BLE001
+            status, body, ctype = _json_bytes({"error": str(exc)}, 500)
+            self._send(status, body, ctype)
 
     def _send(self, status: int, body: bytes, content_type: str, extra_headers: dict | None = None):
         self.send_response(status)
@@ -70,7 +145,11 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         if extra_headers:
             for k, v in extra_headers.items():
-                self.send_header(k, v)
+                if isinstance(v, (list, tuple)):
+                    for item in v:
+                        self.send_header(k, item)
+                else:
+                    self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -83,7 +162,11 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self):
         path = unquote(urlsplit(self.path).path)
-        if path.startswith("/api/admin") or path.startswith("/api/orders"):
+        if (
+            path.startswith("/api/admin")
+            or path.startswith("/api/orders")
+            or path.startswith("/api/auth")
+        ):
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -95,6 +178,8 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = unquote(urlsplit(self.path).path)
+        if path.startswith("/api/auth"):
+            return self._handle_auth_api("GET", path)
         if path.startswith("/api/admin"):
             return self._handle_admin_api("GET", path)
         if path in {"/api/catalog", "/api/catalog.json"}:
@@ -116,15 +201,34 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             return self._serve_checkout()
         if path in {"/admin", "/admin/"}:
             return self._serve_admin_index()
+        if path in {"/admin/login", "/admin/login.html"}:
+            login = ROOT / "admin" / "login.html"
+            if login.is_file():
+                self._send(200, login.read_bytes(), "text/html; charset=utf-8")
+                return
+        if path in {"/account/login", "/account/login.html"}:
+            page = ROOT / "account" / "login.html"
+            if page.is_file():
+                self._send(200, page.read_bytes(), "text/html; charset=utf-8")
+                return
+        if path in {"/account/register", "/account/register.html"}:
+            page = ROOT / "account" / "register.html"
+            if page.is_file():
+                self._send(200, page.read_bytes(), "text/html; charset=utf-8")
+                return
+        if path in {"/404", "/404.html"}:
+            return self._serve_not_found()
         return super().do_GET()
 
     def do_POST(self):
         path = unquote(urlsplit(self.path).path)
+        if path.startswith("/api/auth"):
+            return self._handle_auth_api("POST", path)
         if path.startswith("/api/admin"):
             return self._handle_admin_api("POST", path)
         if path == "/api/orders":
             return self._handle_public_order()
-        self.send_error(404)
+        self._serve_not_found()
 
     def do_PUT(self):
         path = unquote(urlsplit(self.path).path)
@@ -145,10 +249,11 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
         self.send_error(404)
 
     def _serve_admin_index(self):
-        index = ROOT / "admin" / "index.html"
+        if not self._require_admin():
+            return self._serve_not_found()
+        index = ROOT / "admin" / "app.html"
         if not index.is_file():
-            self.send_error(404, "Admin UI missing")
-            return
+            return self._serve_not_found()
         body = index.read_bytes()
         self._send(200, body, "text/html; charset=utf-8")
 
@@ -203,7 +308,12 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
                     status,
                     body,
                     ctype,
-                    {"Set-Cookie": "hhc_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"},
+                    {
+                        "Set-Cookie": [
+                            "hhc_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+                            "hhc_user=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+                        ]
+                    },
                 )
                 return
 
@@ -393,6 +503,11 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             except ValueError:
                 self.send_error(404)
                 return None
+            # Only login + static assets are public; index is gated in do_GET.
+            if candidate.name in {"index.html", "app.html"}:
+                if not self._require_admin():
+                    self.send_error(404)
+                    return None
             if candidate.is_file():
                 self.path = "/" + candidate.relative_to(ROOT).as_posix()
                 return SimpleHTTPRequestHandler.send_head(self)
@@ -454,6 +569,24 @@ class WebsiteHandler(SimpleHTTPRequestHandler):
             return BytesIO(content)
         self.path = "/" + candidate.relative_to(ROOT).as_posix()
         return super().send_head()
+
+    def send_error(self, code, message=None, explain=None):
+        if code == 404:
+            page = ROOT / "404.html"
+            if page.is_file():
+                try:
+                    body = page.read_bytes()
+                    self.send_response(404, message)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    if self.command != "HEAD" and body:
+                        self.wfile.write(body)
+                    return
+                except Exception:
+                    pass
+        return SimpleHTTPRequestHandler.send_error(self, code, message, explain)
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache")

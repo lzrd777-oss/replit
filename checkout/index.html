@@ -8,11 +8,20 @@
   <link rel="stylesheet" href="/checkout/checkout.css" />
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="/">
-      <img src="/hhc-store-logo.svg" alt="HHC-STORE" />
+  <header class="topbar" id="topbar">
+    <a class="brand" href="/" aria-label="HHC-STORE">
+      <img src="/hhc-store-logo.svg" alt="" />
+      <span class="brand-text">HHC-STORE</span>
     </a>
-    <a class="back-shop" href="/">← Към магазина</a>
+    <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Меню" aria-expanded="false" aria-controls="top-nav">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="top-nav" id="top-nav" aria-label="Меню">
+      <a href="/bg/produkty">Продукти</a>
+      <a href="/checkout">Количка</a>
+      <a href="/bg/prihlaseni">Профил</a>
+      <a class="back-shop" href="/">← Към магазина</a>
+    </nav>
   </header>
 
   <main class="checkout">

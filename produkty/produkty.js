@@ -3,6 +3,19 @@
   const FALLBACK_URL = "/storage/catalog.json";
   const PC = "ProductCard-module__ba2BAq__";
 
+  // Hide stale hard-coded counts until live totals are written.
+  const hideStyle = document.createElement("style");
+  hideStyle.textContent = `
+    html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__katPocet,
+    html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__podkatPocet,
+    html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__pocet,
+    html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__pocetMobil,
+    html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__volbaPocet {
+      visibility: hidden !important;
+    }
+  `;
+  document.head.appendChild(hideStyle);
+
   const state = {
     products: [],
     category: "all",
@@ -22,9 +35,21 @@
 
   function isVisibleProduct(p) {
     if (!p || p.archived) return false;
-    // Products without images / banned categories are deleted from the DB.
-    // Keep a hard guard so empty image rows never render if any reappear.
     return Boolean(String(p.image || "").trim());
+  }
+
+  function hay(p) {
+    return [
+      p.category,
+      p.lab_label,
+      p.title,
+      p.slug,
+      p.id,
+      Array.isArray(p.tags) ? p.tags.join(" ") : p.tags,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
   }
 
   function esc(s) {
@@ -66,6 +91,56 @@
       if (state.priceTo != null && price > state.priceTo) return false;
       return true;
     });
+  }
+
+  function matchesHref(p, href) {
+    const path = String(href || "")
+      .split("?")[0]
+      .replace(/\.html$/i, "")
+      .replace(/\/$/, "");
+    const h = hay(p);
+    const cat = String(p.category || "").toLowerCase();
+
+    if (/\/bg\/produkty$/.test(path) || /\/produkty$/.test(path)) return true;
+
+    if (/\/kategorie\/thc-x-cartridge$/.test(path)) {
+      return cat.includes("thc") && /cartridge/.test(h);
+    }
+    if (/\/kategorie\/thc-x-vape-pen$/.test(path)) {
+      return cat.includes("thc") && /vape\s*pen|vape-pen/.test(h);
+    }
+    if (/\/kategorie\/thc-x-syringe$/.test(path)) {
+      return cat.includes("thc") && /syringe/.test(h);
+    }
+    if (/\/kategorie\/thc-x-vyhodne-sety$/.test(path)) {
+      return /изгодни|sety|set\b|комплект/.test(h) && /thc/.test(h);
+    }
+    if (/\/kategorie\/thc-x$/.test(path)) {
+      return cat === "thc-x" || cat.startsWith("thc");
+    }
+    if (/\/kategorie\/hxc-cartridge$/.test(path)) {
+      return cat.includes("hxc") && /cartridge/.test(h);
+    }
+    if (/\/kategorie\/hxc-vape-pen$/.test(path)) {
+      return cat.includes("hxc") && /vape\s*pen|vape-pen/.test(h);
+    }
+    if (/\/kategorie\/hxc-vyhodne-sety$/.test(path)) {
+      return /изгодни|sety|комплект/.test(h) && /hxc/.test(h);
+    }
+    if (/\/kategorie\/hxc$/.test(path)) {
+      return cat === "hxc";
+    }
+    if (/\/kategorie\/ccell$/.test(path)) {
+      return cat === "ccell" || /ccell/.test(h);
+    }
+    if (/\/kategorie\/aromaterapie$/.test(path)) {
+      return /аромат|aroma/.test(h) || cat.includes("друг");
+    }
+    return false;
+  }
+
+  function countForHref(href) {
+    return state.products.filter((p) => matchesHref(p, href)).length;
   }
 
   function cardHtml(p) {
@@ -116,6 +191,37 @@
 </article>`;
   }
 
+  function syncNavCounts() {
+    const total = state.products.length;
+
+    document.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href") || "";
+      if (!/\/(produkty|kategorie\/)/.test(href)) return;
+      const n = countForHref(href);
+      a.querySelectorAll(
+        ".Katalog-module__iT4WXq__katPocet, .Katalog-module__iT4WXq__podkatPocet"
+      ).forEach((el) => {
+        // Keep Bulgarian "продукта" suffix on chip counts when present.
+        if (el.classList.contains("Katalog-module__iT4WXq__podkatPocet")) {
+          el.textContent = `${n} продукта`;
+        } else {
+          el.textContent = String(n);
+        }
+      });
+    });
+
+    document.querySelectorAll(".Katalog-module__iT4WXq__pocet, .Katalog-module__iT4WXq__pocetMobil").forEach((el) => {
+      el.textContent = `${total} продукта`;
+      el.removeAttribute("title");
+    });
+
+    document.querySelectorAll(".Katalog-module__iT4WXq__volbaPocet").forEach((el) => {
+      el.textContent = String(total);
+    });
+
+    document.documentElement.classList.add("hhc-counts-ready");
+  }
+
   function updateCounts(items) {
     const n = items.length;
     document.querySelectorAll("#hhc-apply-count").forEach((el) => {
@@ -123,10 +229,7 @@
     });
     const status = $("#hhc-live-status");
     if (status) status.textContent = `${n} продукта`;
-    // Update "Всички продукти" count in sidebar if present
-    document.querySelectorAll('a[href="/bg/produkty"] .Katalog-module__iT4WXq__katPocet').forEach((el) => {
-      el.textContent = String(state.products.filter((p) => !p.archived).length);
-    });
+    syncNavCounts();
   }
 
   function render() {
@@ -136,7 +239,9 @@
       String(a.title || "").localeCompare(String(b.title || ""), "bg")
     );
     updateCounts(items);
-    grid.innerHTML = items.map(cardHtml).join("") || `<p style="padding:24px;opacity:.7">Няма продукти по избраните филтри.</p>`;
+    grid.innerHTML =
+      items.map(cardHtml).join("") ||
+      `<p style="padding:24px;opacity:.7">Няма продукти по избраните филтри.</p>`;
   }
 
   function readFilters() {
@@ -177,6 +282,20 @@
     });
   }
 
+  function pruneDeadCategoryNav() {
+    const hrefKill =
+      /thc-x-greenz-hemp|hxc-greenz-hemp|thc-x-gummies|thc-x-infused-pre-rolls|greenz-hemp|infused-pre-rolls/i;
+    const textKill = /greenz\s*hemp|gummies|infused\s*pre[-\s]?rolls?/i;
+    document.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href") || "";
+      const text = (a.textContent || "").replace(/\s+/g, " ").trim();
+      if (!hrefKill.test(href) && !textKill.test(text)) return;
+      if (text.length > 90) return;
+      const row = a.closest("li") || a;
+      row.remove();
+    });
+  }
+
   async function load() {
     const status = $("#hhc-live-status");
     if (status) status.textContent = "Зареждане…";
@@ -195,19 +314,6 @@
     pruneDeadCategoryNav();
     readFilters();
     render();
-  }
-
-  function pruneDeadCategoryNav() {
-    // Category pages for these were deleted; remove dead sidebar/chip links.
-    const kill = /greenz\s*hemp|gummies|infused\s*pre[-\s]?rolls?/i;
-    document.querySelectorAll("a[href]").forEach((a) => {
-      const href = a.getAttribute("href") || "";
-      const text = (a.textContent || "").replace(/\s+/g, " ").trim();
-      if (!kill.test(href) && !kill.test(text)) return;
-      if (text.length > 80) return;
-      const row = a.closest("li") || a;
-      row.remove();
-    });
   }
 
   bind();

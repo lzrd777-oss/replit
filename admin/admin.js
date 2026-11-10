@@ -67,14 +67,21 @@
   }
 
   function showLogin(show, message = "") {
-    $("#login-screen").classList.toggle("hidden", !show);
-    $("#app").classList.toggle("hidden", show);
+    // Public /admin never shows a login form — unauthorized users see 404.
+    if (show) {
+      location.replace("/404");
+      return;
+    }
+    $("#login-screen").classList.add("hidden");
+    $("#app").classList.remove("hidden");
     const err = $("#login-error");
-    if (message) {
-      err.textContent = message;
-      err.classList.remove("hidden");
-    } else {
-      err.classList.add("hidden");
+    if (err) {
+      if (message) {
+        err.textContent = message;
+        err.classList.remove("hidden");
+      } else {
+        err.classList.add("hidden");
+      }
     }
   }
 
@@ -657,17 +664,20 @@
   }
 
   async function boot() {
-    bind();
+    document.documentElement.style.visibility = "hidden";
     try {
       const session = await api("/api/admin/session");
       if (!session.ok) {
-        showLogin(true);
+        location.replace("/404");
         return;
       }
-      showLogin(false);
+      document.documentElement.style.visibility = "";
+      $("#login-screen").classList.add("hidden");
+      $("#app").classList.remove("hidden");
+      bind();
       await refreshAll();
     } catch {
-      showLogin(true);
+      location.replace("/404");
     }
   }
 

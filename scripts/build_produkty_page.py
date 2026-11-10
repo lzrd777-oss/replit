@@ -132,18 +132,26 @@ def main() -> None:
         html,
     )
 
-    # Drop removed subcategory rows from sidebar lists only (exact short labels).
-    for label in (
-        "Greenz Hemp",
-        "Gummies",
-        "Infused Pre-Rolls",
-    ):
-        html = re.sub(
-            rf'<li>\s*<a class="Katalog-module__iT4WXq__katOdkaz[^"]*" href="[^"]*">\s*<span>{re.escape(label)}</span>\s*<span class="Katalog-module__iT4WXq__katPocet">\d+</span>\s*</a>\s*</li>',
-            "",
-            html,
-            flags=re.I,
-        )
+    # Permanently delete banned category chips / sidebar / SEO links.
+    banned_href = re.compile(
+        r"thc-x-greenz-hemp|hxc-greenz-hemp|thc-x-gummies|thc-x-infused-pre-rolls",
+        re.I,
+    )
+    banned_label = re.compile(r"Greenz\s*Hemp|Gummies|Infused\s*Pre[-\s]?Rolls", re.I)
+
+    def drop_li(m: re.Match[str]) -> str:
+        block = m.group(0)
+        if banned_href.search(block) or banned_label.search(block):
+            return ""
+        return block
+
+    html = re.sub(r"<li\b[\s\S]*?</li>", drop_li, html)
+    html = re.sub(
+        r'<a\b[^>]*href="[^"]*(?:thc-x-greenz-hemp|hxc-greenz-hemp|thc-x-gummies|thc-x-infused-pre-rolls)[^"]*"[^>]*>[\s\S]*?</a>',
+        "",
+        html,
+        flags=re.I,
+    )
 
     # CRITICAL: strip Next.js runtime / RSC / hydration so the category page
     # cannot re-render THC-X content over our live grid.
@@ -156,6 +164,27 @@ def main() -> None:
         '\n<script src="/produkty/produkty.js" defer></script>\n'
     )
     html = html.replace("</body>", inject + "</body>", 1)
+
+    # Clear stale hard-coded counts; JS fills live totals after catalog load.
+    html = re.sub(r'(class="Katalog-module__iT4WXq__katPocet">)[^<]*', r"\1", html)
+    html = re.sub(
+        r'(class="Katalog-module__iT4WXq__podkatPocet">)[\s\S]*?(</span>)',
+        r"\1\2",
+        html,
+    )
+    html = re.sub(r'(class="Katalog-module__iT4WXq__pocet"[^>]*>)[^<]*', r"\1", html)
+    html = re.sub(r'(class="Katalog-module__iT4WXq__pocetMobil"[^>]*>)[^<]*', r"\1", html)
+    html = re.sub(r'(class="Katalog-module__iT4WXq__volbaPocet">)[^<]*', r"\1", html)
+    if "hhc-counts-ready" not in html:
+        style = (
+            "<style>html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__katPocet,"
+            "html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__podkatPocet,"
+            "html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__pocet,"
+            "html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__pocetMobil,"
+            "html:not(.hhc-counts-ready) .Katalog-module__iT4WXq__volbaPocet"
+            "{visibility:hidden!important}</style>"
+        )
+        html = html.replace("</head>", style + "</head>", 1)
 
     OUT.write_text(html, encoding="utf-8")
     print(f"Wrote {OUT} ({OUT.stat().st_size} bytes) articles={html.count('<article')}")

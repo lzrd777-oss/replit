@@ -1,5 +1,6 @@
 (() => {
   const KEY = "hhc_cart_v1";
+  const MAX_QTY = 100;
   const CATALOG_URL = "/api/catalog";
   const CATALOG_FALLBACK = "/storage/catalog.json";
   const DEFAULT_COLORS = ["Baby Blue", "Forest Green", "Deep Purple", "Deep Red"];
@@ -471,7 +472,7 @@
     const existing = items.find(
       (i) => i.product_id === product.id && !(i.flavors || []).length && !i.color
     );
-    if (existing) existing.qty = (existing.qty || 1) + 1;
+    if (existing) existing.qty = Math.min(MAX_QTY, (existing.qty || 1) + 1);
     else {
       items.push({
         product_id: product.id,

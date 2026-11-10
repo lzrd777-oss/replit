@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Регистрация – HHC-STORE</title>
+  <link rel="icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/account/auth.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <a class="brand" href="/">
+        <img src="/hhc-store-logo.svg" alt="" />
+        <span>HHC-STORE</span>
+      </a>
+      <h1>Регистрация</h1>
+      <p class="sub">Създайте профил (без потвърждение по имейл)</p>
+      <p id="auth-error" class="error hidden"></p>
+      <form id="register-form">
+        <label>Име<input id="name" type="text" autocomplete="name" /></label>
+        <label>Имейл<input id="email" type="email" required autocomplete="email" /></label>
+        <label>Парола<input id="password" type="password" required minlength="6" autocomplete="new-password" /></label>
+        <button type="submit">Създай акаунт</button>
+      </form>
+      <p class="switch">Вече имате акаунт? <a href="/bg/prihlaseni">Вход</a></p>
+    </div>
+  </div>
+  <script src="/account/auth.js" defer></script>
+</body>
+</html>

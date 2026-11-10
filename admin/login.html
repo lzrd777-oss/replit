@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin login – HHC-STORE</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div class="login-screen">
+    <form id="login-form" class="login-card">
+      <div class="login-brand">HHC STORE <span class="badge">ADMIN</span></div>
+      <p class="login-sub">Вход с администраторска парола</p>
+      <label class="field">
+        <span>ПАРОЛА</span>
+        <input type="password" id="login-password" autocomplete="current-password" required />
+      </label>
+      <p id="login-error" class="error-text hidden"></p>
+      <button type="submit" class="btn btn-gold btn-block">Вход</button>
+    </form>
+  </div>
+  <script>
+    (() => {
+      const form = document.getElementById("login-form");
+      const err = document.getElementById("login-error");
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        err.classList.add("hidden");
+        try {
+          const res = await fetch("/api/admin/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              password: document.getElementById("login-password").value,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "Грешна парола");
+          location.href = "/admin";
+        } catch (ex) {
+          err.textContent = ex.message || "Грешка";
+          err.classList.remove("hidden");
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
